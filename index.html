@@ -1,792 +1,809 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تطبيق رصيدي - المساعد الذكي</title>
-    
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <script src="https://unpkg.com/lucide@latest"></script>
+import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom/client';
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        
-        const firebaseConfig = {
-            apiKey: "AIzaSyDpVqFWJfB4rA2-NA4QIl1w07e2LFQaYic",
-            authDomain: "tourguideapp-313c1.firebaseapp.com",
-            databaseURL: "https://tourguideapp-313c1-default-rtdb.firebaseio.com",
-            projectId: "tourguideapp-313c1",
-            storageBucket: "tourguideapp-313c1.firebasestorage.app",
-            messagingSenderId: "1036127588385",
-            appId: "1:1036127588385:web:4924705000167b06395360"
-        };
+// --- DATA & CONSTANTS (Arabic Text & Network Logic) ---
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        
-        window.firebaseAuth = auth;
-        window.firebaseOnAuthStateChanged = onAuthStateChanged;
-    </script>
+// Define network data, including the prefix logic for automatic detection
+const NETWORKS = {
+    vodafone: {
+        id: 'vodafone',
+        name: 'فودافون',
+        prefix: '010',
+        colorClass: 'from-red-700 to-red-900',
+        textColor: 'text-red-500',
+        bgColor: 'bg-red-600',
+    },
+    etisalat: {
+        id: 'etisalat',
+        name: 'اتصالات',
+        prefix: '011',
+        colorClass: 'from-green-700 to-green-900',
+        textColor: 'text-green-500',
+        bgColor: 'bg-green-700',
+    },
+    orange: {
+        id: 'orange',
+        name: 'أورنج',
+        prefix: '012',
+        colorClass: 'from-orange-600 to-orange-800',
+        textColor: 'text-orange-400',
+        bgColor: 'bg-orange-600',
+    },
+    we: {
+        id: 'we',
+        name: 'وي',
+        prefix: '015',
+        colorClass: 'from-purple-700 to-purple-900',
+        textColor: 'text-purple-400',
+        bgColor: 'bg-purple-800',
+    }
+};
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+// Common codes for Quick Actions
+const QUICK_CODES = {
+    recharge: '*858*CODE#', // Vodafone default, others rely on user context
+    balance: { vodafone: '*868*1#', etisalat: '*555#', orange: '#100#', we: '*550#' },
+    cashBalance: { vodafone: '*9*13#', etisalat: '*777*3#', orange: '#115#', we: '*322#' },
+    internet: { vodafone: '*2000#', etisalat: '*566#', orange: '#100*4#', we: '*999#' },
+};
+
+// Comprehensive Codes (Al-Areef) - Includes all requested Call Forwarding and Kol Tone codes
+const AL_AREEF_CODES = {
+    vodafone: [
+        { title: 'شحن رصيد', code: '*858*CODE#' },
+        { title: 'إضافة الكول تون', code: '555', details: 'اتصال بخدمة الكول تون لتفعيل نغمة جديدة' },
+        { title: 'إلغاء الكول تون', code: '*055*0#', details: 'إلغاء جميع خدمات الكول تون' },
+        { title: 'تحويل المكالمات (مشغول)', code: '*67*NUMBER#', details: 'تحويل المكالمات عند انشغال الخط' },
+        { title: 'تحويل المكالمات (عدم رد)', code: '*61*NUMBER#', details: 'تحويل المكالمات في حال عدم الرد' },
+        { title: 'تحويل المكالمات (غير متاح)', code: '*62*NUMBER#', details: 'تحويل المكالمات عند غلق الهاتف أو عدم توفر الخدمة' },
+        { title: 'إلغاء جميع التحويلات', code: '##002#', details: 'إلغاء جميع أنواع تحويل المكالمات' },
+        { title: 'سلفني شكراً', code: '*3#' },
+        { title: 'تحويل رصيد', code: '*868*2*NUM*AMT#' },
+        { title: 'إلغاء الخدمات الترفيهية', code: '*010*010#' },
+    ],
+    etisalat: [
+        { title: 'شحن رصيد', code: '*555*CODE#' },
+        { title: 'إضافة الكول تون', code: '*15*1#', details: 'للاشتراك والدخول لقائمة النغمات' },
+        { title: 'إلغاء الكول تون', code: '*15*5#', details: 'إلغاء جميع خدمات الكول تون' },
+        { title: 'تحويل المكالمات (مشغول)', code: '*67*NUMBER#', details: 'تحويل المكالمات عند انشغال الخط' },
+        { title: 'تحويل المكالمات (عدم رد)', code: '*61*NUMBER#', details: 'تحويل المكالمات في حال عدم الرد' },
+        { title: 'تحويل المكالمات (غير متاح)', code: '*62*NUMBER#', details: 'تحويل المكالمات عند غلق الهاتف أو عدم توفر الخدمة' },
+        { title: 'إلغاء جميع التحويلات', code: '##002#', details: 'إلغاء جميع أنواع تحويل المكالمات' },
+        { title: 'سلفني شكراً', code: '*911#' },
+        { title: 'تحويل الرصيد', code: '*557*NUM*AMT#' },
+        { title: 'إلغاء الخدمات الترفيهية', code: '*166#' },
+    ],
+    orange: [
+        { title: 'شحن رصيد', code: '*102*CODE#' },
+        { title: 'إضافة الكول تون', code: '447', details: 'للاشتراك في خدمة الكول تون واختيار النغمة' },
+        { title: 'إلغاء الكول تون', code: '999', details: 'إلغاء جميع خدمات الكول تون عبر رسالة أو اتصال' },
+        { title: 'تحويل المكالمات (مشغول)', code: '*67*NUMBER#', details: 'تحويل المكالمات عند انشغال الخط' },
+        { title: 'تحويل المكالمات (عدم رد)', code: '*61*NUMBER#', details: 'تحويل المكالمات في حال عدم الرد' },
+        { title: 'تحويل المكالمات (غير متاح)', code: '*62*NUMBER#', details: 'تحويل المكالمات عند غلق الهاتف أو عدم توفر الخدمة' },
+        { title: 'إلغاء جميع التحويلات', code: '##002#', details: 'إلغاء جميع أنواع تحويل المكالمات' },
+        { title: 'سلفني شكراً', code: '#100*2#' },
+        { title: 'خدمات شكراً', code: '#121#' },
+        { title: 'معرفة إجمالي الاستهلاك', code: '#0#' },
+    ],
+    we: [
+        { title: 'شحن رصيد', code: '*555*CODE#' },
+        { title: 'إضافة الكول تون', code: '*660*1#', details: 'للاشتراك والدخول لقائمة النغمات' },
+        { title: 'إلغاء الكول تون', code: '*660*0#', details: 'إلغاء جميع خدمات الكول تون' },
+        { title: 'تحويل المكالمات (مشغول)', code: '*67*NUMBER#', details: 'تحويل المكالمات عند انشغال الخط' },
+        { title: 'تحويل المكالمات (عدم رد)', code: '*61*NUMBER#', details: 'تحويل المكالمات في حال عدم الرد' },
+        { title: 'تحويل المكالمات (غير متاح)', code: '*62*NUMBER#', details: 'تحويل المكالمات عند غلق الهاتف أو عدم توفر الخدمة' },
+        { title: 'إلغاء جميع التحويلات', code: '##002#', details: 'إلغاء جميع أنواع تحويل المكالمات' },
+        { title: 'سلفني', code: '*504#' },
+        { title: 'تحويل الرصيد', code: '*551*NUM*AMT#' },
+        { title: 'تجديد باقة كنترول', code: '*600#' },
+    ]
+};
+
+// Free Net Offers (Enhanced)
+const FREE_NET_OFFERS = {
+     vodafone: [
+        { title: 'عجلة الحظ (تطبيق أنا فودافون)', code: 'عبر التطبيق', details: 'تطبيق أنا فودافون يتيح لك دورة يومية لربح ميجابايتس مجانية.' },
+        { title: 'كود عروض الميجابايتس', code: '*1#', details: 'تحقق من أحدث العروض الحصرية على الإنترنت.' },
+        { title: 'باقة 20 ميجا هدية', code: '*2000*0#', details: 'لتفعيل باقة إنترنت مجانية بسيطة لمرة واحدة.' },
+    ],
+    etisalat: [
+        { title: 'تطبيق ماي اتصالات', code: 'عبر التطبيق', details: 'الدخول اليومي على التطبيق يمنح جوائز منها ميجابايتس مجانية.' },
+        { title: 'عرض اتصالات وخدمة 707', code: '*707#', details: 'عادة ما يحتوي هذا الكود على عروض مفاجئة للميجابايتس.' },
+        { title: 'نت هدية عند تجديد الباقة', code: '*800#', details: 'لبعض الأنظمة، تجديد الباقة قبل الميعاد يمنحك نت هدية.' },
+    ],
+    orange: [
+        { title: 'عروض الإنترنت اليومية', code: '#0#', details: 'للتحقق من أحدث عروض النت والميجابايتس المجانية الحالية.' },
+        { title: 'تطبيق ماي أورنج', code: 'عبر التطبيق', details: 'عروض وهدايا يومية عند استخدام التطبيق.' },
+        { title: 'عرض المكافآت', code: '#12#', details: 'لتجميع النقاط واستبدالها بوحدات وميجابايتس.' },
+    ],
+    we: [
+        { title: 'عروض الـ Gift', code: '*015#', details: 'أكواد العروض اليومية والمفاجآت التي تمنح نت مجاني.' },
+        { title: 'نقاط WE (كاش باك)', code: '*333*#', details: 'استبدال النقاط بوحدات إنترنت مجانية.' },
+        { title: 'نت عند شحن الرصيد', code: '*550#', details: 'قد يتم إضافة ميجابايتس مجانية عند شحن رصيد معين.' },
+    ]
+};
+
+
+// --- UTILITIES & Components ---
+
+const Toast = ({ message, onClose }) => {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 3000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+    
+    return (
+        <div className="fixed top-5 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-gray-900 px-6 py-3 rounded-full shadow-lg z-50 animate-bounce font-semibold text-sm">
+            {message}
+        </div>
+    );
+};
+
+const ActionButton = ({ icon, label, onClick, colorClass, textColor }) => (
+    <button 
+        onClick={onClick}
+        className={`flex flex-col items-center justify-center p-4 bg-gray-800 rounded-xl shadow-lg active:scale-95 transition-transform duration-200 border border-gray-700 w-full`}
+    >
+        <div className={`p-3 rounded-full ${colorClass} bg-opacity-10 mb-2`}>
+            <i data-lucide={icon} className={`w-6 h-6 ${textColor}`}></i>
+        </div>
+        <span className="text-sm font-semibold text-gray-200">{label}</span>
+    </button>
+);
+
+const NetworkDisplay = ({ net, isSelected, onClick }) => (
+    <button
+        onClick={onClick}
+        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-300 border ${isSelected ? `bg-gray-700 border-gray-600 ${net.textColor}` : 'text-gray-400 border-transparent hover:bg-gray-800'}`}
+    >
+        {net.name}
+    </button>
+);
+
+const TabButton = ({ icon, label, isActive, onClick, networkColor }) => (
+    <button onClick={onClick} className={`flex flex-col items-center p-2 rounded-xl transition ${isActive ? networkColor : 'text-gray-500 hover:text-gray-300'}`}>
+        <i data-lucide={icon} className="w-6 h-6"></i>
+        <span className="text-[10px] font-bold mt-1">{label}</span>
+    </button>
+);
+
+// --- AUTH/LOGIN SCREEN (Handles Name, Phone, and Network Detection) ---
+const AuthScreen = ({ onLogin, setIsFirstTime }) => {
+    const [name, setName] = useState('');
+    const [phone, setPhone] = useState('');
+    const [isFormValid, setIsFormValid] = useState(false);
+    const [capchaInput, setCapchaInput] = useState('');
+    const [capchaValue, setCapchaValue] = useState('');
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        generateCapcha();
+        const savedName = localStorage.getItem('userName');
+        if(savedName) setName(savedName);
         
-        body {
-            font-family: 'Cairo', sans-serif;
-            background-color: #f3f4f6;
+        // Check if user is a first-time user
+        const isFirstTime = localStorage.getItem('isFirstTime') !== 'false';
+        setIsFirstTime(isFirstTime);
+        if(!isFirstTime) localStorage.setItem('isFirstTime', 'false');
+
+    }, []);
+
+    useEffect(() => {
+        setIsFormValid(name.length > 2 && phone.length >= 10 && capchaInput === capchaValue);
+    }, [name, phone, capchaInput, capchaValue]);
+
+    const generateCapcha = () => {
+        const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        let result = '';
+        for (let i = 0; i < 6; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        setCapchaValue(result);
+        setCapchaInput('');
+    };
+
+    const getNetworkByPrefix = (num) => {
+        if (num.startsWith('010')) return NETWORKS.vodafone;
+        if (num.startsWith('011')) return NETWORKS.etisalat;
+        if (num.startsWith('012')) return NETWORKS.orange;
+        if (num.startsWith('015')) return NETWORKS.we;
+        return null;
+    };
+
+    const handleLogin = () => {
+        setError(null);
+        if (!isFormValid) {
+             setError('يرجى التأكد من إدخال الاسم ورقم الهاتف بشكل صحيح وحل الكابتشا.');
+             return;
         }
 
-        /* Hide scrollbar for clean UI */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
+        const network = getNetworkByPrefix(phone);
+        if (!network) {
+            setError('رقم الهاتف لا ينتمي لأي شبكة مصرية معروفة (010, 011, 012, 015).');
+            return;
         }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        .network-gradient-vodafone { background: linear-gradient(135deg, #e60000 0%, #b30000 100%); }
-        .network-gradient-etisalat { background: linear-gradient(135deg, #95c11f 0%, #1e5a2d 100%); }
-        .network-gradient-orange { background: linear-gradient(135deg, #ff7900 0%, #cc6000 100%); }
-        .network-gradient-we { background: linear-gradient(135deg, #5c2d91 0%, #3e1e61 100%); }
         
-        .tab-active { color: white; background-color: rgba(255,255,255,0.2); }
-        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* Simple CAPTCHA placeholder style */
-        .captcha-placeholder {
-            border: 2px dashed #9ca3af;
-            background-color: #f9fafb;
-            color: #4b5563;
-        }
-    </style>
-</head>
-<body>
-
-    <div id="root"></div>
-
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-
-        // --- Data & Constants ---
-        const NETWORKS = {
-            vodafone: {
-                id: 'vodafone',
-                name: 'فودافون',
-                colorClass: 'network-gradient-vodafone',
-                textColor: 'text-red-600',
-                bgColor: 'bg-red-500',
-                codes: {
-                    recharge: '*858*CODE#',
-                    balance: '*868*1#',
-                    cashTransfer: '*9*7*NUMBER*AMOUNT#',
-                    cashBalance: '*9*13#',
-                    internet: '*2000#',
-                    service: '888'
-                }
-            },
-            etisalat: {
-                id: 'etisalat',
-                name: 'اتصالات',
-                colorClass: 'network-gradient-etisalat',
-                textColor: 'text-green-600',
-                bgColor: 'bg-green-500',
-                codes: {
-                    recharge: '*555*CODE#',
-                    balance: '*888#',
-                    cashTransfer: '*777*1*NUMBER*AMOUNT#',
-                    cashBalance: '*777*3#',
-                    internet: '*566#',
-                    service: '333'
-                }
-            },
-            orange: {
-                id: 'orange',
-                name: 'أورنج',
-                colorClass: 'network-gradient-orange',
-                textColor: 'text-orange-600',
-                bgColor: 'bg-orange-500',
-                codes: {
-                    recharge: '*102*CODE#',
-                    balance: '*100#',
-                    cashTransfer: '#115#',
-                    cashBalance: '#115#',
-                    internet: '#100*4#',
-                    service: '110'
-                }
-            },
-            we: {
-                id: 'we',
-                name: 'وي',
-                colorClass: 'network-gradient-we',
-                textColor: 'text-purple-600',
-                bgColor: 'bg-purple-900',
-                codes: {
-                    recharge: '*555*CODE#',
-                    balance: '*550#',
-                    cashTransfer: '*322#',
-                    cashBalance: '*322#',
-                    internet: '*999#',
-                    service: '111'
-                }
-            }
-        };
-
-        // --- COMMON CODES (The "Al-Areef" data) ---
-        // تم إضافة أكواد الكول تون وتحويل المكالمات الشاملة
-        const COMMON_CODES = {
-            vodafone: [
-                { title: 'معرفة الرقم', code: '*878#' },
-                { title: 'خدمة سلفني شكراً', code: '*3#' },
-                { title: 'تحويل رصيد', code: '*868*2*NUM*AMT#' },
-                { title: 'التحكم في الباقات', code: '*2000#' },
-                // --- كول تون ---
-                { title: 'إلغاء الكول تون', code: '*055*0#' },
-                { title: 'تفعيل/قائمة الكول تون', code: '550' },
-                // --- تحويل المكالمات (Call Forwarding) ---
-                { title: 'تحويل عند الانشغال', code: '*67*NUM#' },
-                { title: 'تحويل عند عدم الرد', code: '*61*NUM#' },
-                { title: 'تحويل في حالة الإغلاق/غير متاح', code: '*62*NUM#' },
-                { title: 'تحويل فوري (جميع المكالمات)', code: '*21*NUM#' },
-                { title: 'إلغاء جميع التحويلات', code: '##002#' },
-                // --- خدمات عامة إضافية ---
-                { title: 'التحكم في النت (باقتك)', code: '*13#' },
-                { title: 'إلغاء جميع الخدمات الترفيهية', code: '*010*010#' },
-                { title: 'معرفة المتبقي من الباقة', code: '*60#' },
-            ],
-            etisalat: [
-                { title: 'معرفة الرقم', code: '*947#' },
-                { title: 'خدمة سلفني', code: '*911#' },
-                { title: 'تحويل الرصيد', code: '*557*NUM*AMT#' },
-                { title: 'إلغاء الخدمات الترفيهية', code: '*166#' },
-                { title: 'التحكم في باقات النت', code: '*566#' },
-                // --- كول تون ---
-                { title: 'إلغاء الكول تون', code: '*15*5#' },
-                { title: 'تفعيل/قائمة الكول تون', code: '1500' },
-                // --- تحويل المكالمات (Call Forwarding) ---
-                { title: 'تحويل عند الانشغال', code: '*67*NUM#' },
-                { title: 'تحويل عند عدم الرد', code: '*61*NUM#' },
-                { title: 'تحويل في حالة الإغلاق/غير متاح', code: '*62*NUM#' },
-                { title: 'تحويل فوري (جميع المكالمات)', code: '*21*NUM#' },
-                { title: 'إلغاء جميع التحويلات', code: '##002#' },
-                // --- خدمات عامة إضافية ---
-                { title: 'نظام حكاية (تجديد)', code: '*319#' },
-                { title: 'معرفة المتبقي من الباقة', code: '*838#' },
-            ],
-            orange: [
-                { title: 'معرفة الرقم', code: '#119#' },
-                { title: 'خدمة سلفني شكراً', code: '#100*2#' },
-                { title: 'خدمات شكراً', code: '#121#' },
-                { title: 'تحويل رصيد (قائمة)', code: '#100# ثم 2' },
-                { title: 'التحكم في النت', code: '#100*4#' },
-                // --- كول تون ---
-                { title: 'إلغاء الكول تون', code: '999' },
-                { title: 'تفعيل/قائمة الكول تون', code: '999' },
-                // --- تحويل المكالمات (Call Forwarding) ---
-                { title: 'تحويل عند الانشغال', code: '*67*NUM#' },
-                { title: 'تحويل عند عدم الرد', code: '*61*NUM#' },
-                { title: 'تحويل في حالة الإغلاق/غير متاح', code: '*62*NUM#' },
-                { title: 'تحويل فوري (جميع المكالمات)', code: '*21*NUM#' },
-                { title: 'إلغاء جميع التحويلات', code: '##002#' },
-                // --- خدمات عامة إضافية ---
-                { title: 'معرفة إجمالي الاستهلاك', code: '#0#' },
-                { title: 'خدمة اطلبني شكراً', code: '#100# ثم 4' },
-            ],
-            we: [
-                { title: 'معرفة الرقم', code: '*688#' },
-                { title: 'خدمة سلفني', code: '*504#' },
-                { title: 'تحويل الرصيد', code: '*551*NUM*AMT#' },
-                { title: 'إلغاء الخدمات الترفيهية', code: '*155#' },
-                { title: 'التحكم في باقات النت', code: '*999#' },
-                // --- كول تون ---
-                { title: 'إلغاء الكول تون', code: '*660*0#' },
-                { title: 'تفعيل/قائمة الكول تون', code: '660' },
-                // --- تحويل المكالمات (Call Forwarding) ---
-                { title: 'تحويل عند الانشغال', code: '*67*NUM#' },
-                { title: 'تحويل عند عدم الرد', code: '*61*NUM#' },
-                { title: 'تحويل في حالة الإغلاق/غير متاح', code: '*62*NUM#' },
-                { title: 'تحويل فوري (جميع المكالمات)', code: '*21*NUM#' },
-                { title: 'إلغاء جميع التحويلات', code: '##002#' },
-                // --- خدمات عامة إضافية ---
-                { title: 'معرفة المتبقي من الباقة', code: '*414#' },
-                { title: 'تجديد باقة كنترول', code: '*600#' },
-            ]
-        };
+        // Save name for personalized greeting
+        localStorage.setItem('userName', name);
+        localStorage.setItem('isFirstTime', 'false'); // Mark as not first time
         
-        // --- FREE NET CODES/OFFERS --- (Keeping the previous list)
-        const FREE_NET_OFFERS = {
-             vodafone: [
-                { title: 'عجلة الحظ (تطبيق أنا فودافون)', code: 'عبر التطبيق', details: 'تطبيق أنا فودافون يتيح لك دورة يومية لربح ميجابايتس مجانية.' },
-                { title: 'كود عروض الميجابايتس', code: '*1#', details: 'تحقق من أحدث العروض الحصرية على الإنترنت.' },
-                { title: 'باقة 20 ميجا هدية', code: '*2000*0#', details: 'لتفعيل باقة إنترنت مجانية بسيطة لمرة واحدة.' },
-                { title: 'ميجابايتس عند الشحن', code: '*858#', details: 'عادة ما تحصل على ميجابايتس إضافية عند شحن كارت فكة أو باقات معينة.' }
-            ],
-            etisalat: [
-                { title: 'تطبيق ماي اتصالات', code: 'عبر التطبيق', details: 'الدخول اليومي على التطبيق يمنح جوائز منها ميجابايتس مجانية.' },
-                { title: 'عرض اتصالات وخدمة 707', code: '*707#', details: 'عادة ما يحتوي هذا الكود على عروض مفاجئة للميجابايتس.' },
-                { title: 'نت هدية عند تجديد الباقة', code: '*800#', details: 'لبعض الأنظمة، تجديد الباقة قبل الميعاد يمنحك نت هدية.' },
-                { title: 'تحويل وحدات لاتصالات', code: '*808#', details: 'قد يتيح لك تحويل رصيد أو وحدات إلى ميجابايتس.' }
-            ],
-            orange: [
-                { title: 'عروض الإنترنت اليومية', code: '#0#', details: 'للتحقق من أحدث عروض النت والميجابايتس المجانية الحالية.' },
-                { title: 'تطبيق ماي أورنج', code: 'عبر التطبيق', details: 'عروض وهدايا يومية عند استخدام التطبيق.' },
-                { title: 'عرض المكافآت', code: '#12#', details: 'لتجميع النقاط واستبدالها بوحدات وميجابايتس.' },
-                { title: 'الباقات الإضافية المجانية', code: '#136#', details: 'في بعض الأحيان، توفر الشركة باقات صغيرة مجانية.' }
-            ],
-            we: [
-                { title: 'عروض الـ Gift', code: '*015#', details: 'أكواد العروض اليومية والمفاجآت التي تمنح نت مجاني.' },
-                { title: 'نقاط WE (كاش باك)', code: '*333*#', details: 'استبدال النقاط بوحدات إنترنت مجانية.' },
-                { title: 'نت عند شحن الرصيد', code: '*550#', details: 'قد يتم إضافة ميجابايتس مجانية عند شحن رصيد معين.' },
-                { title: 'تفعيل باقة إنترنت مجانية', code: '*999*0#', details: 'كود معروف لتفعيل باقات نت مجانية ترويجية.' }
-            ]
-        };
+        onLogin({ 
+            name, 
+            phoneNumber: phone, 
+            networkId: network.id, 
+            network: network 
+        });
+    };
 
+    const capchaStyle = {
+        fontFamily: 'monospace',
+        fontSize: '24px',
+        fontWeight: 'bold',
+        letterSpacing: '5px',
+        userSelect: 'none',
+        padding: '5px 10px',
+        borderRadius: '5px',
+        background: '#374151',
+        textDecoration: 'line-through',
+        transform: `rotate(${Math.floor(Math.random() * 5) - 2}deg)`,
+    };
 
-        // --- Shared Components ---
-        const Toast = ({ message, onClose }) => {
-            useEffect(() => {
-                const timer = setTimeout(onClose, 3000);
-                return () => clearTimeout(timer);
-            }, [onClose]);
-            
-            return (
-                <div className="fixed top-5 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-50 animate-bounce">
-                    {message}
-                </div>
-            );
-        };
-
-        const ActionButton = ({ icon, label, onClick, colorClass }) => (
-            <button 
-                onClick={onClick}
-                className={`flex flex-col items-center justify-center p-4 bg-white rounded-xl shadow-sm active:scale-95 transition-transform duration-200 border border-gray-100 w-full`}
-            >
-                <div className={`p-3 rounded-full ${colorClass} bg-opacity-10 mb-2`}>
-                    <i data-lucide={icon} className={`w-6 h-6 ${colorClass.replace('bg-', 'text-').replace('10', '600')}`}></i>
-                </div>
-                <span className="text-sm font-semibold text-gray-700">{label}</span>
-            </button>
-        );
-
-        // Login Screen Component (Personalized and Multi-Step)
-        const LoginScreen = ({ onLogin }) => {
-            const [name, setName] = useState('');
-            const [phoneNumber, setPhoneNumber] = useState('');
-            const [otpCode, setOtpCode] = useState('');
-            const [step, setStep] = useState(1); // 1: Info & CAPTCHA, 2: OTP
-            const [error, setError] = useState(null);
-            
-            const handleSendOtp = () => {
-                if (!name || phoneNumber.length < 11) {
-                    setError('يرجى إدخال الاسم ورقم الهاتف بالكامل.');
-                    return;
-                }
-                setError(null);
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gray-900 text-white">
+            <div className="text-center p-8 bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-700">
+                <i data-lucide="shield-check" className="w-12 h-12 text-blue-400 mx-auto mb-4"></i>
+                <h2 className="text-3xl font-bold mb-2">الدخول الآمن</h2>
+                <p className="text-gray-400 mb-8">يرجى إدخال بياناتك للمتابعة (وضع تجريبي بدون OTP فعلي)</p>
                 
-                // --- DEMO FLOW (Simulates Firebase send OTP) ---
-                setStep(2); 
-            };
-            
-            const handleVerifyOtp = () => {
-                if (otpCode === '123456') { // Fixed demo code
-                    onLogin({ name: name, phoneNumber: phoneNumber, uid: Date.now().toString() });
-                } else {
-                    setError('كود التحقق غير صحيح. الكود التجريبي هو: 123456');
-                }
-            };
-            
-            // Re-creating the login screen with steps and user input
-            return (
-                 <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-white">
-                     <div className="text-center p-10 bg-gray-50 rounded-xl shadow-lg w-full max-w-sm">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-4">تسجيل الدخول للتطبيق</h2>
-                        
-                        {error && <div className="bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-sm font-medium">{error}</div>}
+                {error && (
+                    <div className="bg-red-900/50 text-red-300 p-3 rounded-xl mb-4 text-sm font-semibold border border-red-800">
+                        {error}
+                    </div>
+                )}
 
-                        {step === 1 && (
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-sm font-bold text-gray-500 mb-1 block text-right">الاسم</label>
-                                    <input 
-                                        type="text" 
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                        placeholder="اسمك الكريم"
-                                    />
-                                </div>
-                                
-                                <div>
-                                    <label className="text-sm font-bold text-gray-500 mb-1 block text-right">رقم الهاتف</label>
-                                    <input 
-                                        type="tel" 
-                                        value={phoneNumber}
-                                        onChange={(e) => setPhoneNumber(e.target.value)}
-                                        className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                        placeholder="01xxxxxxxxx"
-                                    />
-                                </div>
-                                
-                                {/* CAPTCHA Verifier Placeholder */}
-                                <div id="recaptcha-container" className="captcha-placeholder p-3 rounded-lg text-sm text-center">
-                                    <i data-lucide="shield-check" className="w-5 h-5 inline-block mx-2"></i>
-                                    مكان التحقق من أنك لست روبوت (CAPTCHA)
-                                </div>
-                                
-                                <button 
-                                    onClick={handleSendOtp}
-                                    className="w-full py-3 px-6 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition duration-200"
-                                >
-                                    إرسال كود التحقق (OTP)
-                                </button>
+                <div className="space-y-4 mb-6">
+                    <input 
+                        type="text" 
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="اسم المستخدم"
+                        className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <input 
+                        type="tel" 
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                        placeholder="رقم الهاتف (مثال: 010xxxxxxx)"
+                        className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none dir-ltr text-right"
+                    />
+                </div>
+                
+                {/* CAPTCHA */}
+                <div className="bg-gray-700 p-4 rounded-xl mb-6 border border-gray-600">
+                    <label className="text-sm font-bold text-gray-300 mb-2 block text-right">تحقق أمن (كابتشا)</label>
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                        <span style={capchaStyle} className="text-yellow-400">{capchaValue}</span>
+                        <button onClick={generateCapcha} className="p-2 bg-gray-600 rounded-lg text-gray-300 hover:bg-gray-500 transition">
+                             <i data-lucide="rotate-ccw" className="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <input 
+                        type="text" 
+                        value={capchaInput}
+                        onChange={(e) => setCapchaInput(e.target.value)}
+                        placeholder="أدخل الحروف والأرقام الظاهرة"
+                        className="w-full bg-gray-900 border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none text-center"
+                    />
+                </div>
+
+                <button 
+                    onClick={handleLogin}
+                    disabled={!isFormValid}
+                    className={`w-full py-3 font-bold rounded-xl shadow-lg transition duration-200 
+                        ${isFormValid ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-500 text-gray-300 cursor-not-allowed'}`}
+                >
+                    الدخول إلى التطبيق
+                </button>
+            </div>
+        </div>
+    );
+};
+
+
+// --- TUTORIAL MODAL ---
+const TUTORIAL_STEPS = [
+    { icon: 'hand-heart', title: 'أهلاً بك في رصيدي', text: 'هذا التطبيق هو مساعدك الذكي لجميع أكواد وخدمات شبكتك في مصر.' },
+    { icon: 'smartphone', title: 'التحقق التلقائي', text: 'لقد قمنا باكتشاف شبكتك تلقائيًا. يمكنك التبديل بين الشبكات من الأعلى.' },
+    { icon: 'book-open', title: 'قسم "العريف"', text: 'هنا تجد جميع الأكواد الشاملة بما فيها أكواد الكول تون وتحويل المكالمات، مرتبة لسهولة الاستخدام.' },
+    { icon: 'camera', title: 'خاصية قراءة الكارت', text: 'في قسم الشحن، يمكنك "محاكاة" قراءة رقم كارت الشحن بالكاميرا، وهذه الميزة تعمل بدون انترنت في التطبيق الحقيقي!' },
+    { icon: 'gift', title: 'عروض النت المجاني', text: 'تفقد قسم "نت مجاني" لمعرفة أحدث العروض وأكواد الميجابايتس المجانية لشبكتك.' },
+];
+
+const TutorialModal = ({ step, onNext, onSkip, onClose }) => {
+    const currentStep = TUTORIAL_STEPS[step];
+    
+    useEffect(() => {
+        if (window.lucide) window.lucide.createIcons();
+    }, [step]);
+
+    return (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50">
+            <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-700 text-center animate-fadeIn space-y-5">
+                <i data-lucide={currentStep.icon} className="w-16 h-16 text-yellow-400 mx-auto"></i>
+                <h3 className="text-xl font-bold text-white">{currentStep.title}</h3>
+                <p className="text-gray-300">{currentStep.text}</p>
+                
+                <div className="flex justify-between items-center pt-4 border-t border-gray-700 mt-4">
+                    <button onClick={onSkip} className="text-gray-400 hover:text-white transition text-sm font-medium">تخطي</button>
+                    <div className="flex space-x-1 space-x-reverse">
+                        {TUTORIAL_STEPS.map((_, index) => (
+                            <span 
+                                key={index} 
+                                className={`w-2 h-2 rounded-full transition-all duration-300 ${index === step ? 'bg-blue-500 w-4' : 'bg-gray-600'}`}
+                            ></span>
+                        ))}
+                    </div>
+                    <button 
+                        onClick={onNext} 
+                        className="bg-blue-600 text-white py-2 px-4 rounded-xl font-bold hover:bg-blue-700 transition"
+                    >
+                        {step === TUTORIAL_STEPS.length - 1 ? 'إنهاء' : 'التالي'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+// --- Main App Component ---
+const App = () => {
+    const [user, setUser] = useState(null); // Initially null to show AuthScreen
+    const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS.vodafone);
+    const [activeTab, setActiveTab] = useState('home');
+    const [toast, setToast] = useState(null);
+    
+    // Core App States
+    const [cardCode, setCardCode] = useState('');
+    const [cashPhone, setCashPhone] = useState('');
+    const [cashAmount, setCashAmount] = useState('');
+    
+    // Tutorial State
+    const [showTutorial, setShowTutorial] = useState(false);
+    const [tutorialStep, setTutorialStep] = useState(0);
+
+    // Initial load effects
+    useEffect(() => {
+        if (window.lucide) window.lucide.createIcons();
+        
+        // Load user data if available from storage (for persistent demo login)
+        const savedName = localStorage.getItem('userName');
+        const savedPhone = localStorage.getItem('userPhone');
+        
+        if (savedName && savedPhone) {
+            const network = Object.values(NETWORKS).find(net => savedPhone.startsWith(net.prefix));
+            if (network) {
+                 setUser({ name: savedName, phoneNumber: savedPhone, networkId: network.id, network });
+                 
+                 // Check if first time user
+                 const isFirstTime = localStorage.getItem('isFirstTime') !== 'false';
+                 if(isFirstTime) setShowTutorial(true);
+            }
+        }
+    }, []);
+    
+    // Icon rendering when state changes
+    useEffect(() => {
+         if (window.lucide) window.lucide.createIcons();
+    }, [activeTab, selectedNetwork, user, showTutorial]);
+    
+    // Handlers
+    const showToast = (msg) => setToast(msg);
+    const dialCode = (code) => {
+        const encodedCode = code.replace(/#/g, '%23').replace(/\*/g, '%2A');
+        window.location.href = `tel:${encodedCode}`;
+    };
+    const copyToClipboard = (text) => {
+        // Fallback for clipboard API which may not work in iframe environments
+        const tempElement = document.createElement('textarea');
+        tempElement.value = text;
+        document.body.appendChild(tempElement);
+        tempElement.select();
+        try {
+            document.execCommand('copy');
+            showToast('تم نسخ الكود بنجاح!');
+        } catch (err) {
+            showToast('فشل النسخ، يرجى النسخ يدوياً.');
+            console.error('Could not copy text: ', err);
+        }
+        document.body.removeChild(tempElement);
+    };
+
+    const handleLogin = (userData) => {
+        setUser(userData);
+        setSelectedNetwork(userData.network);
+        localStorage.setItem('userPhone', userData.phoneNumber);
+        localStorage.setItem('userName', userData.name);
+        
+        // Show tutorial only if marked as first time
+        if(localStorage.getItem('isFirstTime') !== 'false') {
+            setShowTutorial(true);
+        }
+    };
+    
+    const handleLogout = () => {
+        setUser(null);
+        localStorage.removeItem('userPhone');
+        localStorage.removeItem('userName');
+    };
+
+    // --- Tutorial Handlers ---
+    const handleTutorialNext = () => {
+        if (tutorialStep < TUTORIAL_STEPS.length - 1) {
+            setTutorialStep(tutorialStep + 1);
+        } else {
+            setShowTutorial(false);
+            localStorage.setItem('isFirstTime', 'false'); // Mark as seen
+        }
+    };
+
+    const handleTutorialSkip = () => {
+        setShowTutorial(false);
+        localStorage.setItem('isFirstTime', 'false'); // Mark as seen
+    };
+
+
+    // --- Core Feature Logic ---
+    const handleNetworkChange = (networkId) => {
+        const newNetwork = NETWORKS[networkId];
+        setSelectedNetwork(newNetwork);
+        setCardCode('');
+        setCashPhone('');
+    };
+
+    const generateRechargeCode = (type) => {
+        if (!cardCode) {
+            showToast('يرجى إدخال رقم الكارت أولاً.');
+            return;
+        }
+        let finalCode = `*${cardCode}#`; // Default simple recharge
+        
+        if (selectedNetwork.id === 'vodafone') {
+            finalCode = type === 'mix' ? `*858*${cardCode}#` : `*858*${cardCode}*9#`;
+        } else if (selectedNetwork.id === 'etisalat') {
+             finalCode = `*555*${cardCode}#`;
+        } else if (selectedNetwork.id === 'orange') {
+             finalCode = `*102*${cardCode}#`;
+        } else if (selectedNetwork.id === 'we') {
+             finalCode = `*555*${cardCode}#`;
+        }
+        
+        dialCode(finalCode);
+        showToast(`تم تحويلك إلى لوحة الاتصال. اضغط "اتصال" لتنفيذ الشحن.`);
+    };
+
+    const generateCashTransfer = () => {
+        if (!cashPhone || !cashAmount) {
+            showToast('يرجى إدخال الرقم والمبلغ أولاً.');
+            return;
+        }
+        
+        let pattern = '*9*7*NUMBER*AMOUNT#'; // Vodafone default
+        if (selectedNetwork.id === 'etisalat') pattern = '*777*1*NUMBER*AMOUNT#';
+        if (selectedNetwork.id === 'orange') pattern = '#115#'; // Orange needs menu interaction
+        if (selectedNetwork.id === 'we') pattern = '*322#'; // WE needs menu interaction
+
+        if (pattern.includes('NUMBER')) {
+            pattern = pattern.replace('NUMBER', cashPhone).replace('AMOUNT', cashAmount);
+            dialCode(pattern);
+            showToast(`تم تحويلك إلى لوحة الاتصال. اضغط "اتصال" للمتابعة.`);
+        } else {
+            dialCode(pattern);
+            showToast('تم تحويلك. يرجى إكمال باقي الخطوات يدوياً في القائمة التي ستظهر.');
+        }
+    };
+    
+    // --- Camera Simulation Logic ---
+    const simulateCameraRead = () => {
+        showToast('محاكاة قراءة الكارت... تم إدخال رقم تجريبي!');
+        // Simulated reading of a 14-digit code
+        setCardCode('12345678901234'); 
+        
+        // Message about offline capability
+        setTimeout(() => {
+            showToast('💡 ملاحظة: هذه الخاصية مصممة للعمل دون إنترنت على الهاتف الفعلي.');
+        }, 1500);
+    };
+
+    // Show Auth Screen if user is not logged in
+    if (!user) {
+        return <AuthScreen onLogin={handleLogin} setIsFirstTime={(isFirst) => isFirst && setShowTutorial(true)} />;
+    }
+    
+    // --- MAIN APP UI ---
+    return (
+        <div className="min-h-screen pb-20 max-w-md mx-auto bg-gray-900 text-white shadow-2xl overflow-hidden relative">
+            
+            {/* Tutorial Modal Overlay */}
+            {showTutorial && <TutorialModal step={tutorialStep} onNext={handleTutorialNext} onSkip={handleTutorialSkip} onClose={handleTutorialSkip} />}
+
+            {/* Header with Network Selector */}
+            <div className={`bg-gradient-to-br ${selectedNetwork.colorClass} text-white p-6 rounded-b-3xl shadow-xl transition-colors duration-500`}>
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h1 className="text-xl font-bold">أهلاً بك يا {user.name}</h1>
+                        <p className="text-sm opacity-90">{user.phoneNumber}</p>
+                    </div>
+                    <button onClick={handleLogout} className="bg-white/20 p-2 rounded-full hover:bg-white/30 transition shadow-md">
+                        <i data-lucide="log-out" className="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                {/* Network Switcher */}
+                <div className="flex justify-between bg-gray-900/50 p-1 rounded-xl backdrop-blur-sm border border-gray-700">
+                    {Object.values(NETWORKS).map(net => (
+                        <NetworkDisplay
+                            key={net.id}
+                            net={net}
+                            isSelected={selectedNetwork.id === net.id}
+                            onClick={() => handleNetworkChange(net.id)}
+                        />
+                    ))}
+                </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-4 space-y-6">
+                
+                {/* 1. HOME TAB: Recharge & Quick Actions */}
+                {activeTab === 'home' && (
+                    <div className="space-y-6 animate-fadeIn">
+                        {/* Recharge Card */}
+                        <div className="bg-gray-800 p-5 rounded-2xl shadow-lg border border-gray-700">
+                            <div className="flex items-center gap-2 mb-4">
+                                <i data-lucide="zap" className={`w-5 h-5 ${selectedNetwork.textColor}`}></i>
+                                <h3 className="font-bold text-gray-100">شحن كارت سريع</h3>
                             </div>
-                        )}
-                        
-                        {step === 2 && (
-                            <div className="space-y-4">
-                                <p className="text-sm text-green-600">تم محاكاة إرسال الكود إلى {phoneNumber}. الكود التجريبي هو: <span className="font-bold">123456</span></p>
+                            <div className="relative flex gap-2">
                                 <input 
                                     type="number" 
-                                    value={otpCode}
-                                    onChange={(e) => setOtpCode(e.target.value)}
-                                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-center focus:ring-green-500 focus:border-green-500 outline-none"
-                                    placeholder="أدخل كود التحقق"
+                                    value={cardCode}
+                                    onChange={(e) => setCardCode(e.target.value)}
+                                    placeholder="اكتب الـ 14 رقم للكارت"
+                                    className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 pl-10 focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-gray-400 dir-ltr"
                                 />
-                                <button 
-                                    onClick={handleVerifyOtp}
-                                    className="w-full py-3 px-6 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition duration-200"
-                                >
-                                    تحقق الآن
-                                </button>
-                                <button onClick={() => setStep(1)} className="w-full text-gray-500 hover:underline mt-2">
-                                    تغيير الرقم
+                                <button onClick={simulateCameraRead} className={`p-3 rounded-xl bg-gray-700 hover:bg-gray-600 transition shadow-lg border border-gray-600`}>
+                                    <i data-lucide="camera" className="w-5 h-5 text-gray-300"></i>
                                 </button>
                             </div>
-                        )}
+                            
+                            <div className="grid grid-cols-2 gap-3 mt-4">
+                                <button onClick={() => generateRechargeCode('mix')} className={`bg-blue-600 text-white py-3 rounded-xl font-bold shadow-md hover:bg-blue-700 active:scale-95 transition`}>
+                                    شحن رصيد/ميكس
+                                </button>
+                                <button onClick={() => generateRechargeCode('net')} className="bg-green-600 text-white py-3 rounded-xl font-bold shadow-md hover:bg-green-700 active:scale-95 transition">
+                                    شحن إنترنت فقط
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Quick Services Grid */}
+                        <div className="grid grid-cols-3 gap-3">
+                            <ActionButton 
+                                icon="smartphone" 
+                                label="استعلام رصيد" 
+                                colorClass="bg-red-900" 
+                                textColor="text-red-400"
+                                onClick={() => { 
+                                    dialCode(QUICK_CODES.balance[selectedNetwork.id]);
+                                    showToast('تم تحويلك للاستعلام.');
+                                }} 
+                            />
+                            <ActionButton 
+                                icon="wifi" 
+                                label="باقات النت" 
+                                colorClass="bg-blue-900" 
+                                textColor="text-blue-400"
+                                onClick={() => dialCode(QUICK_CODES.internet[selectedNetwork.id])} 
+                            />
+                            <ActionButton 
+                                icon="headphones" 
+                                label="خدمة العملاء" 
+                                colorClass="bg-gray-900" 
+                                textColor="text-gray-400"
+                                onClick={() => dialCode(selectedNetwork.codes.service || '111')} 
+                            />
+                        </div>
                     </div>
-                 </div>
-            );
-        };
+                )}
 
-
-        // --- Main App Component ---
-        const App = () => {
-            const [user, setUser] = useState(null); 
-            const [loading, setLoading] = useState(false); 
-            
-            const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS.vodafone);
-            const [activeTab, setActiveTab] = useState('home');
-            const [toast, setToast] = useState(null);
-            
-            // App States
-            const [cardCode, setCardCode] = useState('');
-            const [cashPhone, setCashPhone] = useState('');
-            const [cashAmount, setCashAmount] = useState('');
-            
-            // Usage Monitor State
-            const [dataLimit, setDataLimit] = useState(1000); 
-            const [dataUsed, setDataUsed] = useState(0);
-
-            useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-                // Load user data from localStorage if exists
-                const storedUser = localStorage.getItem('rasidy_user');
-                if (storedUser) {
-                    setUser(JSON.parse(storedUser));
-                }
-            }, []);
-
-            useEffect(() => {
-                 if (window.lucide) window.lucide.createIcons();
-            }, [activeTab, selectedNetwork, user]);
-
-            const showToast = (msg) => setToast(msg);
-
-            // --- Handlers ---
-            const handleNetworkChange = (networkId) => {
-                setSelectedNetwork(NETWORKS[networkId]);
-                setCardCode('');
-                setCashPhone('');
-            };
-
-            const copyToClipboard = (text) => {
-                navigator.clipboard.writeText(text).then(() => {
-                    showToast('تم نسخ الكود بنجاح!');
-                }).catch(err => {
-                    showToast('فشل النسخ، يرجى النسخ يدوياً.');
-                    console.error('Could not copy text: ', err);
-                });
-            };
-
-            const dialCode = (code) => {
-                const encodedCode = code.replace(/#/g, '%23').replace(/\*/g, '%2A');
-                window.location.href = `tel:${encodedCode}`;
-            };
-            
-            const handleLogout = () => {
-                localStorage.removeItem('rasidy_user');
-                setUser(null);
-            };
-            
-            const handleLoginSuccess = (userData) => {
-                 localStorage.setItem('rasidy_user', JSON.stringify(userData));
-                 setUser(userData);
-            };
-            
-            // Logic Generators (Same as before)
-            const generateRechargeCode = (type) => {
-                if (!cardCode) {
-                    showToast('يرجى إدخال رقم الكارت أولاً.');
-                    return;
-                }
-                let finalCode = selectedNetwork.codes.recharge.replace('CODE', cardCode);
-                
-                if (type === 'net' && selectedNetwork.id === 'vodafone') {
-                    finalCode = `*858*${cardCode}*9#`; 
-                }
-                
-                dialCode(finalCode);
-                showToast(`تم تحويلك إلى لوحة الاتصال. اضغط "اتصال" لتنفيذ الشحن.`);
-            };
-
-            const generateCashTransfer = () => {
-                if (!cashPhone || !cashAmount) {
-                    showToast('يرجى إدخال الرقم والمبلغ أولاً.');
-                    return;
-                }
-                let pattern = selectedNetwork.codes.cashTransfer;
-                if (pattern.includes('NUMBER')) {
-                    pattern = pattern.replace('NUMBER', cashPhone).replace('AMOUNT', cashAmount);
-                    dialCode(pattern);
-                    showToast(`تم تحويلك إلى لوحة الاتصال. اضغط "اتصال" للمتابعة.`);
-                } else {
-                    dialCode(pattern);
-                    showToast('تم تحويلك. يرجى إدخال الرقم والمبلغ يدوياً في القائمة.');
-                }
-            };
-            
-
-            // --- Render Screens ---
-            
-            if (loading) return (
-                <div className="flex items-center justify-center h-screen bg-gray-100">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                </div>
-            );
-
-            // If user is null, show login screen
-            if (!user) return <LoginScreen onLogin={handleLoginSuccess} />;
-
-            // --- Main App Interface ---
-            return (
-                <div className="min-h-screen pb-20 max-w-md mx-auto bg-gray-50 shadow-2xl overflow-hidden relative">
-                    
-                    {/* Header with Network Selector */}
-                    <div className={`${selectedNetwork.colorClass} text-white p-6 rounded-b-3xl shadow-lg transition-colors duration-500`}>
-                        <div className="flex justify-between items-center mb-6">
-                            <div>
-                                <h1 className="text-xl font-bold">أهلاً بك يا {user.name}</h1>
-                                <p className="text-sm opacity-90">{user.phoneNumber || 'مستخدم مميز'}</p>
+                {/* 2. CASH TAB */}
+                {activeTab === 'cash' && (
+                    <div className="space-y-6 animate-fadeIn">
+                        <div className="bg-gradient-to-br from-gray-700 to-gray-800 text-white p-6 rounded-2xl shadow-xl border border-gray-600">
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h2 className="text-2xl font-bold">محفظة الكاش</h2>
+                                    <p className="text-gray-400 text-sm mt-1">{selectedNetwork.name} كاش</p>
+                                </div>
+                                <div className="bg-yellow-400/20 p-2 rounded-lg">
+                                    <i data-lucide="wallet" className="w-8 h-8 text-yellow-400"></i>
+                                </div>
                             </div>
-                            <button onClick={handleLogout} className="bg-white/20 p-2 rounded-full hover:bg-white/30">
-                                <i data-lucide="log-out" className="w-5 h-5"></i>
+
+                            <button 
+                                onClick={() => {
+                                    dialCode(QUICK_CODES.cashBalance[selectedNetwork.id]);
+                                    showToast('تم تحويلك للاستعلام عن رصيد المحفظة.');
+                                }}
+                                className="w-full bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition font-bold"
+                            >
+                                <i data-lucide="eye" className="w-4 h-4"></i>
+                                استعلام عن رصيد المحفظة
                             </button>
                         </div>
 
-                        {/* Network Switcher */}
-                        <div className="flex justify-between bg-white/20 p-1 rounded-xl backdrop-blur-sm">
-                            {Object.values(NETWORKS).map(net => (
-                                <button
-                                    key={net.id}
-                                    onClick={() => handleNetworkChange(net.id)}
-                                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${selectedNetwork.id === net.id ? 'bg-white ' + net.textColor : 'text-white hover:bg-white/10'}`}
-                                >
-                                    {net.name}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Content Area */}
-                    <div className="p-4 space-y-6">
-                        
-                        {/* 1. HOME TAB: Recharge & Quick Actions */}
-                        {activeTab === 'home' && (
-                            <div className="space-y-6 animate-fadeIn">
-                                {/* Recharge Card */}
-                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <i data-lucide="zap" className={`w-5 h-5 ${selectedNetwork.textColor}`}></i>
-                                        <h3 className="font-bold text-gray-800">شحن كارت سريع</h3>
+                        <div className="bg-gray-800 p-5 rounded-2xl shadow-lg border border-gray-700">
+                            <h3 className="font-bold text-gray-100 mb-4 border-b border-gray-700 pb-2">تحويل أموال</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-bold text-gray-400 mb-1 block">رقم المحول إليه</label>
+                                    <div className="relative">
+                                        <input 
+                                            type="tel" 
+                                            value={cashPhone}
+                                            onChange={(e) => setCashPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                                            className="w-full bg-gray-700 rounded-xl px-4 py-3 pl-10 border border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-gray-400 dir-ltr"
+                                            placeholder="01xxxxxxxxx"
+                                        />
+                                        <i data-lucide="phone" className="absolute left-3 top-3.5 text-gray-500 w-4 h-4"></i>
                                     </div>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-400 mb-1 block">المبلغ (جنيه)</label>
                                     <div className="relative">
                                         <input 
                                             type="number" 
-                                            value={cardCode}
-                                            onChange={(e) => setCardCode(e.target.value)}
-                                            placeholder="اكتب الـ 14 رقم للكارت"
-                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 pl-10 focus:ring-2 focus:ring-opacity-50 outline-none transition-all"
-                                            style={{ borderColor: selectedNetwork.id === 'vodafone' ? '#fee2e2' : '' }}
+                                            value={cashAmount}
+                                            onChange={(e) => setCashAmount(e.target.value.replace(/[^0-9]/g, ''))}
+                                            className="w-full bg-gray-700 rounded-xl px-4 py-3 pl-10 border border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-gray-400"
+                                            placeholder="مثلاً 100"
                                         />
-                                        <i data-lucide="credit-card" className="absolute left-3 top-3.5 text-gray-400 w-5 h-5"></i>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-2 gap-3 mt-4">
-                                        <button onClick={() => generateRechargeCode('mix')} className={`${selectedNetwork.bgColor} text-white py-3 rounded-xl font-bold shadow-md hover:opacity-90 active:scale-95 transition`}>
-                                            شحن رصيد/ميكس
-                                        </button>
-                                        <button onClick={() => generateRechargeCode('net')} className="bg-gray-800 text-white py-3 rounded-xl font-bold shadow-md hover:bg-gray-700 active:scale-95 transition">
-                                            شحن إنترنت فقط
-                                        </button>
+                                        <i data-lucide="coins" className="absolute left-3 top-3.5 text-gray-500 w-4 h-4"></i>
                                     </div>
                                 </div>
-
-                                {/* Quick Services Grid */}
-                                <div className="grid grid-cols-3 gap-3">
-                                    <ActionButton 
-                                        icon="smartphone" 
-                                        label="استعلام رصيد" 
-                                        colorClass={selectedNetwork.textColor} 
-                                        onClick={() => { 
-                                            dialCode(selectedNetwork.codes.balance);
-                                            showToast('تم تحويلك للاستعلام. الرسالة ستظهر بعد الاتصال.');
-                                        }} 
-                                    />
-                                    <ActionButton 
-                                        icon="wifi" 
-                                        label="باقات النت" 
-                                        colorClass="text-blue-600" 
-                                        onClick={() => dialCode(selectedNetwork.codes.internet)} 
-                                    />
-                                    <ActionButton 
-                                        icon="headphones" 
-                                        label="خدمة العملاء" 
-                                        colorClass="text-gray-600" 
-                                        onClick={() => dialCode(selectedNetwork.codes.service)} 
-                                    />
-                                </div>
+                                <button 
+                                    onClick={generateCashTransfer}
+                                    className={`w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition flex items-center justify-center gap-2`}
+                                >
+                                    <i data-lucide="send" className="w-4 h-4"></i>
+                                    تحويل الآن
+                                </button>
                             </div>
-                        )}
-
-                        {/* 2. CASH TAB */}
-                        {activeTab === 'cash' && (
-                            <div className="space-y-6 animate-fadeIn">
-                                <div className="bg-gradient-to-br from-gray-900 to-gray-800 text-white p-6 rounded-2xl shadow-xl">
-                                    <div className="flex justify-between items-start mb-6">
-                                        <div>
-                                            <h2 className="text-2xl font-bold">محفظة الكاش</h2>
-                                            <p className="text-gray-400 text-sm mt-1">{selectedNetwork.name} كاش</p>
-                                        </div>
-                                        <div className="bg-white/10 p-2 rounded-lg">
-                                            <i data-lucide="wallet" className="w-8 h-8 text-yellow-400"></i>
-                                        </div>
-                                    </div>
-
-                                    <button 
-                                        onClick={() => {
-                                            dialCode(selectedNetwork.codes.cashBalance);
-                                            showToast('تم تحويلك للاستعلام عن رصيد المحفظة. الرسالة ستظهر بعد الاتصال.');
-                                        }}
-                                        className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition"
-                                    >
-                                        <i data-lucide="eye" className="w-4 h-4"></i>
-                                        استعلام عن رصيد المحفظة
-                                    </button>
-                                </div>
-
-                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                                    <h3 className="font-bold text-gray-800 mb-4 border-b pb-2">تحويل أموال</h3>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 mb-1 block">رقم المحول إليه</label>
-                                            <div className="relative">
-                                                <input 
-                                                    type="tel" 
-                                                    value={cashPhone}
-                                                    onChange={(e) => setCashPhone(e.target.value)}
-                                                    className="w-full bg-gray-50 rounded-xl px-4 py-3 pl-10 border focus:border-blue-500 outline-none"
-                                                    placeholder="01xxxxxxxxx"
-                                                />
-                                                <i data-lucide="phone" className="absolute left-3 top-3.5 text-gray-400 w-4 h-4"></i>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 mb-1 block">المبلغ (جنيه)</label>
-                                            <div className="relative">
-                                                <input 
-                                                    type="number" 
-                                                    value={cashAmount}
-                                                    onChange={(e) => setCashAmount(e.target.value)}
-                                                    className="w-full bg-gray-50 rounded-xl px-4 py-3 pl-10 border focus:border-blue-500 outline-none"
-                                                    placeholder="مثلاً 100"
-                                                />
-                                                <i data-lucide="coins" className="absolute left-3 top-3.5 text-gray-400 w-4 h-4"></i>
-                                            </div>
-                                        </div>
-                                        <button 
-                                            onClick={generateCashTransfer}
-                                            className={`w-full ${selectedNetwork.bgColor} text-white py-3 rounded-xl font-bold shadow-lg hover:brightness-110 transition flex items-center justify-center gap-2`}
-                                        >
-                                            <i data-lucide="send" className="w-4 h-4"></i>
-                                            تحويل الآن
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* 3. FREE NET TAB */}
-                        {activeTab === 'freenet' && (
-                            <div className="animate-fadeIn space-y-4">
-                                <div className="bg-yellow-50 border border-yellow-100 p-4 rounded-xl flex items-center gap-3">
-                                    <i data-lucide="gift" className="text-yellow-600 w-6 h-6"></i>
-                                    <div>
-                                        <h3 className="font-bold text-yellow-900">إنترنت مجاني وعروض</h3>
-                                        <p className="text-xs text-yellow-700">أكواد وعروض الميجابايتس المجانية لشبكة {selectedNetwork.name}</p>
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    {FREE_NET_OFFERS[selectedNetwork.id].map((item, idx) => (
-                                        <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
-                                            <h4 className="font-bold text-lg text-gray-800 flex justify-between items-center">
-                                                {item.title}
-                                                <span className="text-sm text-yellow-600 font-mono">{item.code}</span>
-                                            </h4>
-                                            <p className="text-sm text-gray-600 mt-1 mb-3">{item.details}</p>
-                                            <div className="flex gap-2 justify-end">
-                                                {item.code.includes('*') || item.code.includes('#') ? (
-                                                     <>
-                                                        <button onClick={() => copyToClipboard(item.code)} className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 text-xs">
-                                                            <i data-lucide="copy" className="w-4 h-4"></i>
-                                                        </button>
-                                                        <button onClick={() => dialCode(item.code)} className={`p-2 ${selectedNetwork.bgColor} bg-opacity-10 rounded-lg ${selectedNetwork.textColor} hover:bg-opacity-20 text-xs font-bold flex items-center gap-1`}>
-                                                            <i data-lucide="phone" className="w-4 h-4"></i> اتصال
-                                                        </button>
-                                                    </>
-                                                ) : (
-                                                    <span className="text-xs text-gray-500 bg-gray-50 p-1 rounded">يتم التفعيل عبر التطبيق</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-
-                        {/* 4. AL-AREEF TAB (Codes) */}
-                        {activeTab === 'areef' && (
-                            <div className="animate-fadeIn space-y-4">
-                                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-center gap-3">
-                                    <i data-lucide="book-open" className="text-blue-600 w-6 h-6"></i>
-                                    <div>
-                                        <h3 className="font-bold text-blue-900">العريف (الأكواد الشاملة)</h3>
-                                        <p className="text-xs text-blue-700">دليل أكواد جميع خدمات شبكة {selectedNetwork.name} (كول تون وتحويل)</p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    {COMMON_CODES[selectedNetwork.id].map((item, idx) => (
-                                        <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group hover:border-blue-200 transition">
-                                            <div>
-                                                <h4 className="font-bold text-gray-800">{item.title}</h4>
-                                                <p className="text-sm text-gray-500 font-mono mt-1 dir-ltr">{item.code}</p>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => copyToClipboard(item.code)} className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200">
-                                                    <i data-lucide="copy" className="w-4 h-4"></i>
-                                                </button>
-                                                <button onClick={() => dialCode(item.code)} className={`p-2 ${selectedNetwork.bgColor} bg-opacity-10 rounded-lg ${selectedNetwork.textColor} hover:bg-opacity-20`}>
-                                                    <i data-lucide="phone" className="w-4 h-4"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 5. USAGE / FIREWALL TAB */}
-                        {activeTab === 'usage' && (
-                            <div className="animate-fadeIn space-y-6">
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center">
-                                    <h3 className="text-lg font-bold text-gray-800 mb-2">مراقب الاستهلاك</h3>
-                                    <p className="text-xs text-gray-500 mb-6">أداة حسابية مساعدة لتتبع الاستهلاك يدوياً.</p>
-                                    
-                                    <div className="relative w-40 h-40 mx-auto mb-6 flex items-center justify-center">
-                                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                                            <path className="text-gray-200" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                                            <path className={`${selectedNetwork.textColor}`} strokeDasharray={`${(dataUsed/dataLimit)*100}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                                        </svg>
-                                        <div className="absolute flex flex-col items-center">
-                                            <span className="text-2xl font-bold text-gray-800">{dataLimit - dataUsed}</span>
-                                            <span className="text-xs text-gray-500">ميجابايت متبقية</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg mb-4">
-                                        <span className="text-sm font-bold text-gray-600">حدد الباقة (ميجابايت):</span>
-                                        <input 
-                                            type="number" 
-                                            value={dataLimit} 
-                                            onChange={(e) => setDataLimit(parseInt(e.target.value) || 0)}
-                                            className="w-24 bg-white border rounded px-2 py-1 text-center outline-none focus:ring-1"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <p className="text-xs font-bold text-left text-gray-500">إضافة استهلاك افتراضي:</p>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            <button onClick={() => setDataUsed(d => d + 50)} className="bg-blue-50 text-blue-600 py-2 rounded-lg text-xs font-bold">+50MB (فيديو)</button>
-                                            <button onClick={() => setDataUsed(d => d + 10)} className="bg-green-50 text-green-600 py-2 rounded-lg text-xs font-bold">+10MB (تصفح)</button>
-                                            <button onClick={() => setDataUsed(0)} className="bg-red-50 text-red-600 py-2 rounded-lg text-xs font-bold">تصفير</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                    </div>
-
-                    {/* Bottom Navigation */}
-                    <div className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-200 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-                        <div className="flex justify-around items-center p-2">
-                            <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center p-2 rounded-xl transition ${activeTab === 'home' ? selectedNetwork.textColor : 'text-gray-400'}`}>
-                                <i data-lucide="home" className="w-6 h-6"></i>
-                                <span className="text-[10px] font-bold mt-1">الرئيسية</span>
-                            </button>
-                            <button onClick={() => setActiveTab('cash')} className={`flex flex-col items-center p-2 rounded-xl transition ${activeTab === 'cash' ? selectedNetwork.textColor : 'text-gray-400'}`}>
-                                <i data-lucide="wallet" className="w-6 h-6"></i>
-                                <span className="text-[10px] font-bold mt-1">الكاش</span>
-                            </button>
-                            <button onClick={() => setActiveTab('freenet')} className={`flex flex-col items-center p-2 rounded-xl transition ${activeTab === 'freenet' ? selectedNetwork.textColor : 'text-gray-400'}`}>
-                                <i data-lucide="gift" className="w-6 h-6"></i>
-                                <span className="text-[10px] font-bold mt-1">نت مجاني</span>
-                            </button>
-                            <button onClick={() => setActiveTab('areef')} className={`flex flex-col items-center p-2 rounded-xl transition ${activeTab === 'areef' ? selectedNetwork.textColor : 'text-gray-400'}`}>
-                                <i data-lucide="book-open" className="w-6 h-6"></i>
-                                <span className="text-[10px] font-bold mt-1">العريف</span>
-                            </button>
-                            <button onClick={() => setActiveTab('usage')} className={`flex flex-col items-center p-2 rounded-xl transition ${activeTab === 'usage' ? selectedNetwork.textColor : 'text-gray-400'}`}>
-                                <i data-lucide="pie-chart" className="w-6 h-6"></i>
-                                <span className="text-[10px] font-bold mt-1">استهلاك</span>
-                            </button>
                         </div>
                     </div>
-                    {toast && <Toast message={toast} onClose={() => setToast(null)} />}
-                </div>
-            );
-        };
+                )}
+                
+                {/* 3. FREE NET TAB (New) */}
+                {activeTab === 'freenet' && (
+                    <div className="animate-fadeIn space-y-4">
+                        <div className="bg-yellow-900/40 border border-yellow-800 p-4 rounded-xl flex items-center gap-3">
+                            <i data-lucide="gift" className="text-yellow-400 w-6 h-6"></i>
+                            <div>
+                                <h3 className="font-bold text-yellow-200">إنترنت مجاني وعروض</h3>
+                                <p className="text-xs text-yellow-300">أكواد وعروض الميجابايتس المجانية لشبكة {selectedNetwork.name}</p>
+                            </div>
+                        </div>
+                        <div className="space-y-3">
+                            {FREE_NET_OFFERS[selectedNetwork.id].map((item, idx) => (
+                                <div key={idx} className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 hover:border-yellow-500 transition">
+                                    <h4 className="font-bold text-lg text-gray-100 flex justify-between items-start">
+                                        {item.title}
+                                        <span className="text-sm text-yellow-400 font-mono bg-gray-900 px-2 py-1 rounded-lg dir-ltr">{item.code}</span>
+                                    </h4>
+                                    <p className="text-sm text-gray-400 mt-1 mb-3">{item.details}</p>
+                                    <div className="flex gap-2 justify-end">
+                                        {item.code.includes('*') || item.code.includes('#') ? (
+                                             <>
+                                                <button onClick={() => copyToClipboard(item.code)} className="p-2 bg-gray-700 rounded-lg text-gray-300 hover:bg-gray-600 text-xs transition">
+                                                    <i data-lucide="copy" className="w-4 h-4"></i>
+                                                </button>
+                                                <button onClick={() => dialCode(item.code)} className={`p-2 bg-green-600 rounded-lg text-white hover:bg-green-700 text-xs font-bold flex items-center gap-1 transition`}>
+                                                    <i data-lucide="phone" className="w-4 h-4"></i> اتصال
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <span className="text-xs text-gray-500 bg-gray-700 p-1 rounded-lg">يتم التفعيل عبر التطبيق الخارجي</span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+
+                {/* 4. AL-AREEF TAB (Comprehensive Codes) */}
+                {activeTab === 'areef' && (
+                    <div className="animate-fadeIn space-y-4">
+                        <div className="bg-blue-900/40 border border-blue-800 p-4 rounded-xl flex items-center gap-3">
+                            <i data-lucide="book-open" className="text-blue-400 w-6 h-6"></i>
+                            <div>
+                                <h3 className="font-bold text-blue-200">العريف (الأكواد الشاملة)</h3>
+                                <p className="text-xs text-blue-300">جميع أكواد خدمات شبكة {selectedNetwork.name} - تشمل الكول تون وتحويل المكالمات</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            {AL_AREEF_CODES[selectedNetwork.id].map((item, idx) => (
+                                <div key={idx} className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 flex justify-between items-center group hover:border-blue-500 transition">
+                                    <div>
+                                        <h4 className="font-bold text-gray-100">{item.title}</h4>
+                                        <p className="text-sm text-gray-500 mt-1">{item.details}</p>
+                                        <p className="text-xs text-yellow-400 font-mono mt-1 dir-ltr">{item.code}</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => copyToClipboard(item.code)} className="p-2 bg-gray-700 rounded-lg text-gray-300 hover:bg-gray-600">
+                                            <i data-lucide="copy" className="w-4 h-4"></i>
+                                        </button>
+                                        <button onClick={() => dialCode(item.code)} className={`p-2 bg-blue-600 rounded-lg text-white hover:bg-blue-700`}>
+                                            <i data-lucide="phone" className="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* 5. USAGE / FIREWALL TAB (Same functionality, dark theme) */}
+                {activeTab === 'usage' && (
+                    <div className="animate-fadeIn space-y-6">
+                        <div className="bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700 text-center">
+                            <h3 className="text-lg font-bold text-gray-100 mb-2">مراقب الاستهلاك</h3>
+                            <p className="text-xs text-gray-400 mb-6">أداة حسابية مساعدة لتتبع الاستهلاك يدوياً (لا تحتاج لإنترنت).</p>
+                            
+                            <div className="relative w-40 h-40 mx-auto mb-6 flex items-center justify-center">
+                                {/* SVG Circle Progress (Needs state for real implementation, using placeholder here) */}
+                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                    <path className="text-gray-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                                    <path className={`text-blue-500`} strokeDasharray={`70, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                                </svg>
+                                <div className="absolute flex flex-col items-center">
+                                    <span className="text-2xl font-bold text-gray-100">30%</span>
+                                    <span className="text-xs text-gray-400">من الباقة مستهلك</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold text-left text-gray-400">أكواد التحكم في الباقة (تفعيل / إلغاء):</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button onClick={() => dialCode(selectedNetwork.codes.internet || '*100#')} className="bg-red-800/50 text-red-300 py-2 rounded-lg text-xs font-bold hover:bg-red-700/50">إلغاء باقة إضافية</button>
+                                    <button onClick={() => dialCode(selectedNetwork.codes.internet || '*100#')} className="bg-green-800/50 text-green-300 py-2 rounded-lg text-xs font-bold hover:bg-green-700/50">شراء باقة إضافية</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+            </div>
+
+            {/* Bottom Navigation */}
+            <div className="fixed bottom-0 w-full max-w-md bg-gray-800 border-t border-gray-700 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
+                <div className="flex justify-around items-center p-2">
+                    <TabButton icon="home" label="الرئيسية" isActive={activeTab === 'home'} onClick={() => setActiveTab('home')} networkColor={selectedNetwork.textColor} />
+                    <TabButton icon="wallet" label="الكاش" isActive={activeTab === 'cash'} onClick={() => setActiveTab('cash')} networkColor={selectedNetwork.textColor} />
+                    <TabButton icon="gift" label="نت مجاني" isActive={activeTab === 'freenet'} onClick={() => setActiveTab('freenet')} networkColor={selectedNetwork.textColor} />
+                    <TabButton icon="book-open" label="العريف" isActive={activeTab === 'areef'} onClick={() => setActiveTab('areef')} networkColor={selectedNetwork.textColor} />
+                    <TabButton icon="pie-chart" label="استهلاك" isActive={activeTab === 'usage'} onClick={() => setActiveTab('usage')} networkColor={selectedNetwork.textColor} />
+                </div>
+            </div>
+            {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+        </div>
+    );
+};
+
+// Root setup
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+
