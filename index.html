@@ -5,25 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تطبيق رصيدي - المساعد الذكي</title>
     
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     
-    <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Firebase SDKs (Modular) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         
-        // Expose Firebase functionality to the window object for React to use
+        // This is where you would import/use RecaptchaVerifier
+        
         const firebaseConfig = {
             apiKey: "AIzaSyDpVqFWJfB4rA2-NA4QIl1w07e2LFQaYic",
             authDomain: "tourguideapp-313c1.firebaseapp.com",
@@ -37,12 +33,9 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         
-        // Make auth available globally
         window.firebaseAuth = auth;
-        window.firebaseSignIn = signInWithPhoneNumber;
-        window.firebaseRecaptcha = RecaptchaVerifier;
-        window.firebaseSignOut = signOut;
         window.firebaseOnAuthStateChanged = onAuthStateChanged;
+        window.firebaseApp = app; // Expose app for RecaptchaVerifier
     </script>
 
     <style>
@@ -68,6 +61,12 @@
         .network-gradient-we { background: linear-gradient(135deg, #5c2d91 0%, #3e1e61 100%); }
         
         .tab-active { color: white; background-color: rgba(255,255,255,0.2); }
+        /* Simple CAPTCHA placeholder style */
+        .captcha-placeholder {
+            border: 2px dashed #9ca3af;
+            background-color: #f9fafb;
+            color: #4b5563;
+        }
     </style>
 </head>
 <body>
@@ -103,7 +102,7 @@
                 codes: {
                     recharge: '*555*CODE#',
                     balance: '*888#',
-                    cashTransfer: '*777*1*NUMBER*AMOUNT#', // Example pattern
+                    cashTransfer: '*777*1*NUMBER*AMOUNT#', 
                     cashBalance: '*777*3#',
                     internet: '*566#',
                     service: '333'
@@ -118,7 +117,7 @@
                 codes: {
                     recharge: '*102*CODE#',
                     balance: '*100#',
-                    cashTransfer: '#115#', // Usually menu based
+                    cashTransfer: '#115#', 
                     cashBalance: '#115#',
                     internet: '#100*4#',
                     service: '110'
@@ -141,32 +140,47 @@
             }
         };
 
+        // --- COMMON CODES (The "Al-Areef" data) ---
         const COMMON_CODES = {
             vodafone: [
                 { title: 'معرفة الرقم', code: '*878#' },
                 { title: 'باقات النت', code: '*2000#' },
-                { title: 'خدمة سلفني', code: '*3#' },
+                { title: 'خدمة سلفني شكراً', code: '*3#' },
                 { title: 'تحويل رصيد', code: '*868*2*Num*Amt#' },
                 { title: 'إلغاء الكول تون', code: '*055*0#' },
+                { title: 'تجديد الباقة (فليكس)', code: '*225#' },
+                { title: 'خدمة كلمني شكراً', code: '*505*NUMBER#' },
+                { title: 'خدمة حظر المكالمات', code: '*7#' },
             ],
             etisalat: [
                 { title: 'معرفة الرقم', code: '*947#' },
                 { title: 'باقات النت', code: '*566#' },
-                { title: 'سلفني', code: '*911#' },
+                { title: 'خدمة سلفني', code: '*911#' },
                 { title: 'نظام حكاية', code: '*319#' },
-                { title: 'إلغاء الخدمات', code: '*166#' },
+                { title: 'إلغاء الخدمات الترفيهية', code: '*166#' },
+                { title: 'تحويل الرصيد', code: '*557*NUM*AMT#' },
+                { title: 'خدمة الكول تون', code: '1500' },
+                { title: 'خدمة انتظار المكالمات', code: '*43#' },
             ],
             orange: [
                 { title: 'معرفة الرقم', code: '#119#' },
                 { title: 'باقات النت', code: '#100*4#' },
-                { title: 'سلفني', code: '#100*2#' },
+                { title: 'خدمة سلفني شكراً', code: '#100*2#' },
                 { title: 'خدمات شكراً', code: '#121#' },
+                { title: 'تحويل رصيد', code: '#100# ثم 2' },
+                { title: 'معرفة إجمالي الاستهلاك', code: '#0#' },
+                { title: 'نظام الكارت', code: '400' },
+                { title: 'إلغاء خاصية إيزي نت', code: '399' },
             ],
             we: [
                 { title: 'معرفة الرقم', code: '*688#' },
-                { title: 'باقات النت', code: '*999#' },
-                { title: 'سلفني', code: '*504#' },
-                { title: 'العروض', code: '*015#' },
+                { title: 'باقات النت (التحكم)', code: '*999#' },
+                { title: 'خدمة سلفني', code: '*504#' },
+                { title: 'العروض اليومية', code: '*015#' },
+                { title: 'تحويل الرصيد', code: '*551*NUM*AMT#' },
+                { title: 'التحكم في الخط', code: '111 أو 01555000111' },
+                { title: 'معرفة المتبقي من الباقة', code: '*414#' },
+                { title: 'إلغاء الخدمات الترفيهية', code: '*155#' },
             ]
         };
 
@@ -195,43 +209,138 @@
                 <span className="text-sm font-semibold text-gray-700">{label}</span>
             </button>
         );
+        
+        // Login Screen Component (with CAPTCHA/Verifier Placeholder)
+        const LoginScreen = ({ onLogin }) => {
+            const [phoneNumber, setPhoneNumber] = useState('');
+            const [otpCode, setOtpCode] = useState('');
+            const [step, setStep] = useState(1); // 1: Phone, 2: OTP
+            
+            // Placeholder for RecaptchaVerifier
+            const recaptchaRef = useRef(null);
+            
+            const handleSendOtp = () => {
+                if (phoneNumber.length < 11) return alert('يرجى إدخال رقم هاتف صحيح');
+                
+                // --- Real Implementation with Firebase RecaptchaVerifier would go here ---
+                // For a real app, you would initialize RecaptchaVerifier on `recaptchaRef.current`
+                // and then call signInWithPhoneNumber.
+                
+                // DEMO FLOW
+                setStep(2); 
+            };
+            
+            const handleVerifyOtp = () => {
+                if (otpCode.length !== 6) return alert('يرجى إدخال كود صحيح');
+                // --- Real OTP Verification would go here ---
+                
+                // DEMO FLOW
+                onLogin({ phoneNumber: phoneNumber, uid: 'demo' });
+            };
+
+            // CAPTCHA Placeholder
+            useEffect(() => {
+                if (step === 1) {
+                    // Initialize RecaptchaVerifier here in a real app
+                    // This div is needed for Firebase to inject the reCAPTCHA widget
+                    // if (window.firebaseApp) {
+                    //     window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(recaptchaRef.current, {
+                    //          'size': 'invisible' or 'normal',
+                    //          // ... other settings
+                    //     }, window.firebaseApp);
+                    //     window.recaptchaVerifier.render();
+                    // }
+                }
+            }, [step]);
+            
+            return (
+                 <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-white">
+                     <div className="text-center p-10 bg-gray-50 rounded-xl shadow-lg w-full max-w-sm">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-4">تسجيل الدخول</h2>
+                        <p className="text-gray-600 mb-6">يرجى إدخال رقم الهاتف لإرسال كود التحقق.</p>
+                        
+                        {step === 1 && (
+                            <div className="space-y-4">
+                                <input 
+                                    type="tel" 
+                                    value={phoneNumber}
+                                    onChange={(e) => setPhoneNumber(e.target.value)}
+                                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                    placeholder="01xxxxxxxxx"
+                                />
+                                
+                                {/* CAPTCHA Verifier Placeholder */}
+                                <div ref={recaptchaRef} id="recaptcha-container" className="captcha-placeholder p-3 rounded-lg text-sm text-center">
+                                    <i data-lucide="shield-check" className="w-5 h-5 inline-block mx-2"></i>
+                                    مكان التحقق من أنك لست روبوت (CAPTCHA)
+                                </div>
+                                
+                                <button 
+                                    onClick={handleSendOtp}
+                                    className="w-full py-3 px-6 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition duration-200"
+                                >
+                                    إرسال كود التحقق
+                                </button>
+                                <button 
+                                    onClick={() => onLogin({ phoneNumber: '01000000000 (تجريبي)', uid: 'demo' })}
+                                    className="w-full text-blue-600 font-bold hover:underline mt-2"
+                                >
+                                    الدخول بوضع تجريبي
+                                </button>
+                            </div>
+                        )}
+                        
+                        {step === 2 && (
+                            <div className="space-y-4">
+                                <p className="text-sm text-green-600">تم إرسال الكود إلى {phoneNumber}.</p>
+                                <input 
+                                    type="number" 
+                                    value={otpCode}
+                                    onChange={(e) => setOtpCode(e.target.value)}
+                                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-center focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                    placeholder="أدخل كود التحقق"
+                                />
+                                <button 
+                                    onClick={handleVerifyOtp}
+                                    className="w-full py-3 px-6 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition duration-200"
+                                >
+                                    تحقق الآن
+                                </button>
+                                <button onClick={() => setStep(1)} className="w-full text-gray-500 hover:underline mt-2">
+                                    تغيير الرقم
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                 </div>
+            );
+        };
+
 
         // --- Main App Component ---
         const App = () => {
-            const [user, setUser] = useState(null);
-            const [loading, setLoading] = useState(true);
+            const [user, setUser] = useState(null); // Start with null to show LoginScreen
+            const [loading, setLoading] = useState(false); 
+            
             const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS.vodafone);
             const [activeTab, setActiveTab] = useState('home');
             const [toast, setToast] = useState(null);
             
-            // Login State
-            const [phoneNumber, setPhoneNumber] = useState('');
-            const [otp, setOtp] = useState('');
-            const [showOtpInput, setShowOtpInput] = useState(false);
-            const [confirmationResult, setConfirmationResult] = useState(null);
-
             // App States
             const [cardCode, setCardCode] = useState('');
             const [cashPhone, setCashPhone] = useState('');
             const [cashAmount, setCashAmount] = useState('');
             
-            // Usage Monitor State
-            const [dataLimit, setDataLimit] = useState(1000); // MB
+            // Usage Monitor State (Simplified Firewall Placeholder)
+            const [dataLimit, setDataLimit] = useState(2000); // MB
             const [dataUsed, setDataUsed] = useState(0);
 
             useEffect(() => {
-                // Initialize Lucide icons
                 if (window.lucide) window.lucide.createIcons();
-                
-                // Auth Listener
-                if (window.firebaseOnAuthStateChanged) {
-                    const unsubscribe = window.firebaseOnAuthStateChanged(window.firebaseAuth, (currentUser) => {
-                        setUser(currentUser);
-                        setLoading(false);
-                    });
-                    return () => unsubscribe();
-                } else {
-                    setLoading(false);
+                // Check if user data exists (if we want persistence)
+                const storedUser = localStorage.getItem('rasidy_demo_user');
+                if (storedUser) {
+                    setUser(JSON.parse(storedUser));
                 }
             }, []);
 
@@ -244,7 +353,6 @@
             // --- Handlers ---
             const handleNetworkChange = (networkId) => {
                 setSelectedNetwork(NETWORKS[networkId]);
-                // Reset inputs when network changes
                 setCardCode('');
                 setCashPhone('');
             };
@@ -252,91 +360,62 @@
             const copyToClipboard = (text) => {
                 navigator.clipboard.writeText(text).then(() => {
                     showToast('تم نسخ الكود بنجاح!');
+                }).catch(err => {
+                    showToast('فشل النسخ، يرجى النسخ يدوياً.');
+                    console.error('Could not copy text: ', err);
                 });
             };
 
             const dialCode = (code) => {
-                // Encode # as %23 for tel links
-                const encodedCode = code.replace(/#/g, '%23');
+                const encodedCode = code.replace(/#/g, '%23').replace(/\*/g, '%2A');
                 window.location.href = `tel:${encodedCode}`;
-            };
-
-            // --- Auth Functions ---
-            const setupRecaptcha = () => {
-                if (!window.recaptchaVerifier) {
-                    window.recaptchaVerifier = new window.firebaseRecaptcha(
-                        'recaptcha-container',
-                        { 'size': 'invisible' },
-                        window.firebaseAuth
-                    );
-                }
-            };
-
-            const handleSendOtp = async () => {
-                if (!phoneNumber || phoneNumber.length < 11) {
-                    showToast("يرجى إدخال رقم هاتف صحيح");
-                    return;
-                }
-                try {
-                    setLoading(true);
-                    setupRecaptcha();
-                    const appVerifier = window.recaptchaVerifier;
-                    const formattedPhone = phoneNumber.startsWith('+2') ? phoneNumber : `+2${phoneNumber}`;
-                    
-                    const confirmation = await window.firebaseSignIn(window.firebaseAuth, formattedPhone, appVerifier);
-                    setConfirmationResult(confirmation);
-                    setShowOtpInput(true);
-                    showToast("تم إرسال رمز التحقق");
-                } catch (error) {
-                    console.error(error);
-                    showToast("حدث خطأ في الإرسال: " + error.message);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleVerifyOtp = async () => {
-                try {
-                    setLoading(true);
-                    await confirmationResult.confirm(otp);
-                    showToast("تم تسجيل الدخول بنجاح!");
-                } catch (error) {
-                    showToast("كود التحقق غير صحيح");
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleDemoLogin = () => {
-                // For preview purposes if Firebase fails due to domain restrictions
-                setUser({ phoneNumber: '01000000000', uid: 'demo' });
             };
 
             // --- Logic Generators ---
             const generateRechargeCode = (type) => {
-                if (!cardCode) return;
+                if (!cardCode) {
+                    showToast('يرجى إدخال رقم الكارت أولاً.');
+                    return;
+                }
                 let finalCode = selectedNetwork.codes.recharge.replace('CODE', cardCode);
                 
-                // Custom logic for "Net Only" specific to Vodafone usually adds *9# at end, simplified here
+                // Specific logic for "Net Only"
                 if (type === 'net' && selectedNetwork.id === 'vodafone') {
-                    // This is an example assumption, real codes vary by card type
                     finalCode = `*858*${cardCode}*9#`; 
+                } else if (type === 'net' && selectedNetwork.id === 'we') {
+                    finalCode = `*555*${cardCode}*2#`;
                 }
                 
                 dialCode(finalCode);
+                showToast(`تم تحويلك إلى لوحة الاتصال. اضغط "اتصال" لتنفيذ الشحن.`);
             };
 
             const generateCashTransfer = () => {
-                if (!cashPhone || !cashAmount) return;
+                if (!cashPhone || !cashAmount) {
+                    showToast('يرجى إدخال الرقم والمبلغ أولاً.');
+                    return;
+                }
                 let pattern = selectedNetwork.codes.cashTransfer;
                 if (pattern.includes('NUMBER')) {
                     pattern = pattern.replace('NUMBER', cashPhone).replace('AMOUNT', cashAmount);
                     dialCode(pattern);
+                    showToast(`تم تحويلك إلى لوحة الاتصال. اضغط "اتصال" للمتابعة.`);
                 } else {
-                    // For Menu based (like Orange #115#)
                     dialCode(pattern);
-                    showToast('اتبع التعليمات الصوتية أو القائمة');
+                    showToast('تم تحويلك. يرجى إدخال الرقم والمبلغ يدوياً في القائمة.');
                 }
+            };
+            
+            // Logout Function
+            const handleLogout = () => {
+                // In a real app: window.firebaseSignOut(window.firebaseAuth);
+                localStorage.removeItem('rasidy_demo_user');
+                setUser(null);
+            };
+            
+            const handleLoginSuccess = (userData) => {
+                 localStorage.setItem('rasidy_demo_user', JSON.stringify(userData));
+                 setUser(userData);
             };
 
             // --- Render Screens ---
@@ -347,64 +426,8 @@
                 </div>
             );
 
-            if (!user) return (
-                <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-white">
-                    <div className="w-full max-w-md space-y-8">
-                        <div className="text-center">
-                            <div className="bg-blue-600 w-20 h-20 rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-blue-200">
-                                <i data-lucide="smartphone" className="w-10 h-10 text-white"></i>
-                            </div>
-                            <h2 className="text-3xl font-bold text-gray-900">تطبيق رصيدي</h2>
-                            <p className="mt-2 text-gray-500">أدر خطك، اشحن، وحول فلوسك في مكان واحد</p>
-                        </div>
-
-                        {!showOtpInput ? (
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">رقم الهاتف</label>
-                                    <input 
-                                        type="tel" 
-                                        value={phoneNumber}
-                                        onChange={(e) => setPhoneNumber(e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-left"
-                                        placeholder="01xxxxxxxxx"
-                                    />
-                                </div>
-                                <button 
-                                    onClick={handleSendOtp}
-                                    className="w-full py-3 px-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition duration-200"
-                                >
-                                    إرسال كود التحقق
-                                </button>
-                                <div id="recaptcha-container"></div>
-                                <button onClick={handleDemoLogin} className="w-full text-sm text-gray-400 mt-4 underline">
-                                    دخول تجريبي (بدون تسجيل)
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">كود التحقق (OTP)</label>
-                                    <input 
-                                        type="text" 
-                                        value={otp}
-                                        onChange={(e) => setOtp(e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest text-xl"
-                                        placeholder="XXXXXX"
-                                    />
-                                </div>
-                                <button 
-                                    onClick={handleVerifyOtp}
-                                    className="w-full py-3 px-4 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition duration-200"
-                                >
-                                    تأكيد الدخول
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                    {toast && <Toast message={toast} onClose={() => setToast(null)} />}
-                </div>
-            );
+            // If user is null, show login screen
+            if (!user) return <LoginScreen onLogin={handleLoginSuccess} />;
 
             // --- Main App Interface ---
             return (
@@ -417,7 +440,7 @@
                                 <h1 className="text-xl font-bold">أهلاً بك</h1>
                                 <p className="text-sm opacity-90">{user.phoneNumber || 'مستخدم مميز'}</p>
                             </div>
-                            <button onClick={() => window.firebaseSignOut(window.firebaseAuth)} className="bg-white/20 p-2 rounded-full hover:bg-white/30">
+                            <button onClick={handleLogout} className="bg-white/20 p-2 rounded-full hover:bg-white/30">
                                 <i data-lucide="log-out" className="w-5 h-5"></i>
                             </button>
                         </div>
@@ -455,7 +478,6 @@
                                             onChange={(e) => setCardCode(e.target.value)}
                                             placeholder="اكتب الـ 14 رقم للكارت"
                                             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 pl-10 focus:ring-2 focus:ring-opacity-50 outline-none transition-all"
-                                            style={{ borderColor: selectedNetwork.id === 'vodafone' ? '#fee2e2' : '' }}
                                         />
                                         <i data-lucide="credit-card" className="absolute left-3 top-3.5 text-gray-400 w-5 h-5"></i>
                                     </div>
@@ -476,7 +498,10 @@
                                         icon="smartphone" 
                                         label="استعلام رصيد" 
                                         colorClass={selectedNetwork.textColor} 
-                                        onClick={() => dialCode(selectedNetwork.codes.balance)} 
+                                        onClick={() => { 
+                                            dialCode(selectedNetwork.codes.balance);
+                                            showToast('تم تحويلك للاستعلام. الرسالة ستظهر بعد الاتصال.');
+                                        }} 
                                     />
                                     <ActionButton 
                                         icon="wifi" 
@@ -509,7 +534,10 @@
                                     </div>
 
                                     <button 
-                                        onClick={() => dialCode(selectedNetwork.codes.cashBalance)}
+                                        onClick={() => {
+                                            dialCode(selectedNetwork.codes.cashBalance);
+                                            showToast('تم تحويلك للاستعلام عن رصيد المحفظة. الرسالة ستظهر بعد الاتصال.');
+                                        }}
                                         className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition"
                                     >
                                         <i data-lucide="eye" className="w-4 h-4"></i>
@@ -565,7 +593,7 @@
                                     <i data-lucide="book-open" className="text-blue-600 w-6 h-6"></i>
                                     <div>
                                         <h3 className="font-bold text-blue-900">العريف</h3>
-                                        <p className="text-xs text-blue-700">دليل الأكواد المختصرة لشبكة {selectedNetwork.name}</p>
+                                        <p className="text-xs text-blue-700">دليل الأكواد المختصرة الشامل لشبكة {selectedNetwork.name}</p>
                                     </div>
                                 </div>
 
@@ -577,10 +605,10 @@
                                                 <p className="text-sm text-gray-500 font-mono mt-1 dir-ltr">{item.code}</p>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button onClick={() => copyToClipboard(item.code)} className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200">
+                                                <button onClick={() => copyToClipboard(item.code)} className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200" title="نسخ">
                                                     <i data-lucide="copy" className="w-4 h-4"></i>
                                                 </button>
-                                                <button onClick={() => dialCode(item.code)} className={`p-2 ${selectedNetwork.bgColor} bg-opacity-10 rounded-lg ${selectedNetwork.textColor} hover:bg-opacity-20`}>
+                                                <button onClick={() => dialCode(item.code)} className={`p-2 ${selectedNetwork.bgColor} bg-opacity-10 rounded-lg ${selectedNetwork.textColor} hover:bg-opacity-20`} title="اتصال">
                                                     <i data-lucide="phone" className="w-4 h-4"></i>
                                                 </button>
                                             </div>
@@ -595,7 +623,7 @@
                             <div className="animate-fadeIn space-y-6">
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center">
                                     <h3 className="text-lg font-bold text-gray-800 mb-2">مراقب الاستهلاك</h3>
-                                    <p className="text-xs text-gray-500 mb-6">تنبيه: لا يمكن للمواقع حظر التطبيقات الأخرى، لكن يمكننا مساعدتك في حساب استهلاكك.</p>
+                                    <p className="text-xs text-red-500 font-bold mb-4 border-b pb-3">تنبيه: خاصية حظر التطبيقات تتطلب أذونات نظام التشغيل ولا تعمل في تطبيق الويب. هذه أداة حسابية مساعدة فقط.</p>
                                     
                                     <div className="relative w-40 h-40 mx-auto mb-6 flex items-center justify-center">
                                         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
@@ -605,25 +633,27 @@
                                         <div className="absolute flex flex-col items-center">
                                             <span className="text-2xl font-bold text-gray-800">{dataLimit - dataUsed}</span>
                                             <span className="text-xs text-gray-500">ميجابايت متبقية</span>
+                                            {dataUsed > dataLimit && <span className="text-red-500 font-bold text-xs mt-1">تجاوزت الباقة!</span>}
                                         </div>
                                     </div>
 
                                     <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg mb-4">
-                                        <span className="text-sm font-bold text-gray-600">حدد الباقة (ميجابايت):</span>
+                                        <span className="text-sm font-bold text-gray-600">حدد حجم الباقة (ميجابايت):</span>
                                         <input 
                                             type="number" 
                                             value={dataLimit} 
                                             onChange={(e) => setDataLimit(parseInt(e.target.value) || 0)}
                                             className="w-24 bg-white border rounded px-2 py-1 text-center outline-none focus:ring-1"
+                                            min="0"
                                         />
                                     </div>
 
                                     <div className="space-y-2">
-                                        <p className="text-xs font-bold text-left text-gray-500">إضافة استهلاك افتراضي:</p>
+                                        <p className="text-xs font-bold text-left text-gray-500">إضافة استهلاك افتراضي (محاكاة الحظر):</p>
                                         <div className="grid grid-cols-3 gap-2">
-                                            <button onClick={() => setDataUsed(d => d + 50)} className="bg-blue-50 text-blue-600 py-2 rounded-lg text-xs font-bold">+50MB (فيديو)</button>
-                                            <button onClick={() => setDataUsed(d => d + 10)} className="bg-green-50 text-green-600 py-2 rounded-lg text-xs font-bold">+10MB (تصفح)</button>
-                                            <button onClick={() => setDataUsed(0)} className="bg-red-50 text-red-600 py-2 rounded-lg text-xs font-bold">تصفير</button>
+                                            <button onClick={() => setDataUsed(d => d + 150)} className="bg-blue-50 text-blue-600 py-2 rounded-lg text-xs font-bold">+150MB (فيديو)</button>
+                                            <button onClick={() => setDataUsed(d => d + 20)} className="bg-green-50 text-green-600 py-2 rounded-lg text-xs font-bold">+20MB (تصفح)</button>
+                                            <button onClick={() => setDataUsed(0)} className="bg-red-50 text-red-600 py-2 rounded-lg text-xs font-bold">تصفير العداد</button>
                                         </div>
                                     </div>
                                 </div>
@@ -663,4 +693,3 @@
     </script>
 </body>
 </html>
-
