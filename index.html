@@ -15,7 +15,6 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <script type="module">
-        // Keeping Firebase imports as originally requested by you for the App Creator environment
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         
@@ -61,6 +60,12 @@
         .tab-active { color: white; background-color: rgba(255,255,255,0.2); }
         .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Simple CAPTCHA placeholder style */
+        .captcha-placeholder {
+            border: 2px dashed #9ca3af;
+            background-color: #f9fafb;
+            color: #4b5563;
+        }
     </style>
 </head>
 <body>
@@ -135,65 +140,87 @@
         };
 
         // --- COMMON CODES (The "Al-Areef" data) ---
-        // تم إضافة أكواد كثيرة لتغطية جميع الخدمات المطلوبة
+        // تم إضافة أكواد الكول تون وتحويل المكالمات الشاملة
         const COMMON_CODES = {
             vodafone: [
                 { title: 'معرفة الرقم', code: '*878#' },
-                { title: 'باقات النت (التحكم)', code: '*2000#' },
                 { title: 'خدمة سلفني شكراً', code: '*3#' },
                 { title: 'تحويل رصيد', code: '*868*2*NUM*AMT#' },
+                { title: 'التحكم في الباقات', code: '*2000#' },
+                // --- كول تون ---
                 { title: 'إلغاء الكول تون', code: '*055*0#' },
-                { title: 'تجديد الباقة (فليكس)', code: '*225#' },
-                { title: 'تفعيل/إلغاء المكالمات الدولية', code: '*888*5#' },
+                { title: 'تفعيل/قائمة الكول تون', code: '550' },
+                // --- تحويل المكالمات (Call Forwarding) ---
+                { title: 'تحويل عند الانشغال', code: '*67*NUM#' },
+                { title: 'تحويل عند عدم الرد', code: '*61*NUM#' },
+                { title: 'تحويل في حالة الإغلاق/غير متاح', code: '*62*NUM#' },
+                { title: 'تحويل فوري (جميع المكالمات)', code: '*21*NUM#' },
+                { title: 'إلغاء جميع التحويلات', code: '##002#' },
+                // --- خدمات عامة إضافية ---
+                { title: 'التحكم في النت (باقتك)', code: '*13#' },
                 { title: 'إلغاء جميع الخدمات الترفيهية', code: '*010*010#' },
-                { title: 'التحكم في استخدام النت (باقتك)', code: '*13# أو *999#' },
-                { title: 'خدمة لايف للمكالمات', code: '*888*50#' },
                 { title: 'معرفة المتبقي من الباقة', code: '*60#' },
-                { title: 'خدمة الانتظار', code: '*43#' },
             ],
             etisalat: [
                 { title: 'معرفة الرقم', code: '*947#' },
-                { title: 'باقات النت (التحكم)', code: '*566#' },
                 { title: 'خدمة سلفني', code: '*911#' },
                 { title: 'تحويل الرصيد', code: '*557*NUM*AMT#' },
                 { title: 'إلغاء الخدمات الترفيهية', code: '*166#' },
-                { title: 'تجديد باقة حكاية', code: '*319#' },
-                { title: 'إلغاء خدمة الكول تون', code: '*15*5#' },
-                { title: 'إيقاف خط (في حال السرقة)', code: '333' },
-                { title: 'إعدادات الإنترنت (الضبط)', code: '*100#' },
+                { title: 'التحكم في باقات النت', code: '*566#' },
+                // --- كول تون ---
+                { title: 'إلغاء الكول تون', code: '*15*5#' },
+                { title: 'تفعيل/قائمة الكول تون', code: '1500' },
+                // --- تحويل المكالمات (Call Forwarding) ---
+                { title: 'تحويل عند الانشغال', code: '*67*NUM#' },
+                { title: 'تحويل عند عدم الرد', code: '*61*NUM#' },
+                { title: 'تحويل في حالة الإغلاق/غير متاح', code: '*62*NUM#' },
+                { title: 'تحويل فوري (جميع المكالمات)', code: '*21*NUM#' },
+                { title: 'إلغاء جميع التحويلات', code: '##002#' },
+                // --- خدمات عامة إضافية ---
+                { title: 'نظام حكاية (تجديد)', code: '*319#' },
                 { title: 'معرفة المتبقي من الباقة', code: '*838#' },
-                { title: 'خدمة كلمني شكراً', code: '*111*NUM#' },
-                { title: 'نظام الخطوط الفواتير', code: '500' },
             ],
             orange: [
                 { title: 'معرفة الرقم', code: '#119#' },
-                { title: 'باقات النت (التحكم)', code: '#100*4#' },
                 { title: 'خدمة سلفني شكراً', code: '#100*2#' },
                 { title: 'خدمات شكراً', code: '#121#' },
                 { title: 'تحويل رصيد (قائمة)', code: '#100# ثم 2' },
-                { title: 'معرفة إجمالي الاستهلاك', code: '#0#' },
+                { title: 'التحكم في النت', code: '#100*4#' },
+                // --- كول تون ---
                 { title: 'إلغاء الكول تون', code: '999' },
-                { title: 'خدمة حظر المكالمات', code: '#100*4*1*2#' },
+                { title: 'تفعيل/قائمة الكول تون', code: '999' },
+                // --- تحويل المكالمات (Call Forwarding) ---
+                { title: 'تحويل عند الانشغال', code: '*67*NUM#' },
+                { title: 'تحويل عند عدم الرد', code: '*61*NUM#' },
+                { title: 'تحويل في حالة الإغلاق/غير متاح', code: '*62*NUM#' },
+                { title: 'تحويل فوري (جميع المكالمات)', code: '*21*NUM#' },
+                { title: 'إلغاء جميع التحويلات', code: '##002#' },
+                // --- خدمات عامة إضافية ---
+                { title: 'معرفة إجمالي الاستهلاك', code: '#0#' },
                 { title: 'خدمة اطلبني شكراً', code: '#100# ثم 4' },
-                { title: 'التحويل لنظام الكارت', code: '#100# ثم 6' },
-                { title: 'الاشتراك في باقات المكالمات', code: '#100#' },
             ],
             we: [
                 { title: 'معرفة الرقم', code: '*688#' },
-                { title: 'باقات النت (التحكم)', code: '*999#' },
                 { title: 'خدمة سلفني', code: '*504#' },
                 { title: 'تحويل الرصيد', code: '*551*NUM*AMT#' },
                 { title: 'إلغاء الخدمات الترفيهية', code: '*155#' },
+                { title: 'التحكم في باقات النت', code: '*999#' },
+                // --- كول تون ---
+                { title: 'إلغاء الكول تون', code: '*660*0#' },
+                { title: 'تفعيل/قائمة الكول تون', code: '660' },
+                // --- تحويل المكالمات (Call Forwarding) ---
+                { title: 'تحويل عند الانشغال', code: '*67*NUM#' },
+                { title: 'تحويل عند عدم الرد', code: '*61*NUM#' },
+                { title: 'تحويل في حالة الإغلاق/غير متاح', code: '*62*NUM#' },
+                { title: 'تحويل فوري (جميع المكالمات)', code: '*21*NUM#' },
+                { title: 'إلغاء جميع التحويلات', code: '##002#' },
+                // --- خدمات عامة إضافية ---
                 { title: 'معرفة المتبقي من الباقة', code: '*414#' },
                 { title: 'تجديد باقة كنترول', code: '*600#' },
-                { title: 'إلغاء الكول تون', code: '*660*0#' },
-                { title: 'خدمة التجوال', code: '*325#' },
-                { title: 'خدمة الخط الساخن', code: '111' },
-                { title: 'تحديد سعر الدقيقة', code: '*100#' },
             ]
         };
-
-        // --- FREE NET CODES/OFFERS ---
+        
+        // --- FREE NET CODES/OFFERS --- (Keeping the previous list)
         const FREE_NET_OFFERS = {
              vodafone: [
                 { title: 'عجلة الحظ (تطبيق أنا فودافون)', code: 'عبر التطبيق', details: 'تطبيق أنا فودافون يتيح لك دورة يومية لربح ميجابايتس مجانية.' },
@@ -248,10 +275,110 @@
             </button>
         );
 
+        // Login Screen Component (Personalized and Multi-Step)
+        const LoginScreen = ({ onLogin }) => {
+            const [name, setName] = useState('');
+            const [phoneNumber, setPhoneNumber] = useState('');
+            const [otpCode, setOtpCode] = useState('');
+            const [step, setStep] = useState(1); // 1: Info & CAPTCHA, 2: OTP
+            const [error, setError] = useState(null);
+            
+            const handleSendOtp = () => {
+                if (!name || phoneNumber.length < 11) {
+                    setError('يرجى إدخال الاسم ورقم الهاتف بالكامل.');
+                    return;
+                }
+                setError(null);
+                
+                // --- DEMO FLOW (Simulates Firebase send OTP) ---
+                setStep(2); 
+            };
+            
+            const handleVerifyOtp = () => {
+                if (otpCode === '123456') { // Fixed demo code
+                    onLogin({ name: name, phoneNumber: phoneNumber, uid: Date.now().toString() });
+                } else {
+                    setError('كود التحقق غير صحيح. الكود التجريبي هو: 123456');
+                }
+            };
+            
+            // Re-creating the login screen with steps and user input
+            return (
+                 <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-white">
+                     <div className="text-center p-10 bg-gray-50 rounded-xl shadow-lg w-full max-w-sm">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-4">تسجيل الدخول للتطبيق</h2>
+                        
+                        {error && <div className="bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-sm font-medium">{error}</div>}
+
+                        {step === 1 && (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-sm font-bold text-gray-500 mb-1 block text-right">الاسم</label>
+                                    <input 
+                                        type="text" 
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                        placeholder="اسمك الكريم"
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label className="text-sm font-bold text-gray-500 mb-1 block text-right">رقم الهاتف</label>
+                                    <input 
+                                        type="tel" 
+                                        value={phoneNumber}
+                                        onChange={(e) => setPhoneNumber(e.target.value)}
+                                        className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                        placeholder="01xxxxxxxxx"
+                                    />
+                                </div>
+                                
+                                {/* CAPTCHA Verifier Placeholder */}
+                                <div id="recaptcha-container" className="captcha-placeholder p-3 rounded-lg text-sm text-center">
+                                    <i data-lucide="shield-check" className="w-5 h-5 inline-block mx-2"></i>
+                                    مكان التحقق من أنك لست روبوت (CAPTCHA)
+                                </div>
+                                
+                                <button 
+                                    onClick={handleSendOtp}
+                                    className="w-full py-3 px-6 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition duration-200"
+                                >
+                                    إرسال كود التحقق (OTP)
+                                </button>
+                            </div>
+                        )}
+                        
+                        {step === 2 && (
+                            <div className="space-y-4">
+                                <p className="text-sm text-green-600">تم محاكاة إرسال الكود إلى {phoneNumber}. الكود التجريبي هو: <span className="font-bold">123456</span></p>
+                                <input 
+                                    type="number" 
+                                    value={otpCode}
+                                    onChange={(e) => setOtpCode(e.target.value)}
+                                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-center focus:ring-green-500 focus:border-green-500 outline-none"
+                                    placeholder="أدخل كود التحقق"
+                                />
+                                <button 
+                                    onClick={handleVerifyOtp}
+                                    className="w-full py-3 px-6 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition duration-200"
+                                >
+                                    تحقق الآن
+                                </button>
+                                <button onClick={() => setStep(1)} className="w-full text-gray-500 hover:underline mt-2">
+                                    تغيير الرقم
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                 </div>
+            );
+        };
+
+
         // --- Main App Component ---
         const App = () => {
-            // Revert back to the original demo user flow
-            const [user, setUser] = useState({ phoneNumber: '01000000000', uid: 'demo' });
+            const [user, setUser] = useState(null); 
             const [loading, setLoading] = useState(false); 
             
             const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS.vodafone);
@@ -263,12 +390,17 @@
             const [cashPhone, setCashPhone] = useState('');
             const [cashAmount, setCashAmount] = useState('');
             
-            // Usage Monitor State (keeping the fake usage monitor)
-            const [dataLimit, setDataLimit] = useState(1000); // MB
+            // Usage Monitor State
+            const [dataLimit, setDataLimit] = useState(1000); 
             const [dataUsed, setDataUsed] = useState(0);
 
             useEffect(() => {
                 if (window.lucide) window.lucide.createIcons();
+                // Load user data from localStorage if exists
+                const storedUser = localStorage.getItem('rasidy_user');
+                if (storedUser) {
+                    setUser(JSON.parse(storedUser));
+                }
             }, []);
 
             useEffect(() => {
@@ -297,8 +429,18 @@
                 const encodedCode = code.replace(/#/g, '%23').replace(/\*/g, '%2A');
                 window.location.href = `tel:${encodedCode}`;
             };
-
-            // --- Logic Generators ---
+            
+            const handleLogout = () => {
+                localStorage.removeItem('rasidy_user');
+                setUser(null);
+            };
+            
+            const handleLoginSuccess = (userData) => {
+                 localStorage.setItem('rasidy_user', JSON.stringify(userData));
+                 setUser(userData);
+            };
+            
+            // Logic Generators (Same as before)
             const generateRechargeCode = (type) => {
                 if (!cardCode) {
                     showToast('يرجى إدخال رقم الكارت أولاً.');
@@ -330,26 +472,17 @@
                 }
             };
             
-            // Temporary Logout for Demo User
-            const handleDemoLogout = () => {
-                setUser(null);
-            };
 
-            // Re-adding the simple login/start screen from your original request
-            if (!user) return (
-                 <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-white">
-                     <div className="text-center p-10 bg-gray-50 rounded-xl shadow-lg">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-4">الوصول للتطبيق</h2>
-                        <p className="text-gray-600 mb-6">التطبيق يعمل الآن بوضع تجريبي لتجنب مشاكل الـ OTP.</p>
-                        <button 
-                            onClick={() => setUser({ phoneNumber: '01000000000 (تجريبي)', uid: 'demo' })}
-                            className="py-3 px-6 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition duration-200"
-                        >
-                            بدء استخدام التطبيق
-                        </button>
-                    </div>
-                 </div>
+            // --- Render Screens ---
+            
+            if (loading) return (
+                <div className="flex items-center justify-center h-screen bg-gray-100">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
             );
+
+            // If user is null, show login screen
+            if (!user) return <LoginScreen onLogin={handleLoginSuccess} />;
 
             // --- Main App Interface ---
             return (
@@ -359,10 +492,10 @@
                     <div className={`${selectedNetwork.colorClass} text-white p-6 rounded-b-3xl shadow-lg transition-colors duration-500`}>
                         <div className="flex justify-between items-center mb-6">
                             <div>
-                                <h1 className="text-xl font-bold">أهلاً بك</h1>
+                                <h1 className="text-xl font-bold">أهلاً بك يا {user.name}</h1>
                                 <p className="text-sm opacity-90">{user.phoneNumber || 'مستخدم مميز'}</p>
                             </div>
-                            <button onClick={handleDemoLogout} className="bg-white/20 p-2 rounded-full hover:bg-white/30">
+                            <button onClick={handleLogout} className="bg-white/20 p-2 rounded-full hover:bg-white/30">
                                 <i data-lucide="log-out" className="w-5 h-5"></i>
                             </button>
                         </div>
@@ -509,7 +642,7 @@
                             </div>
                         )}
                         
-                        {/* 3. FREE NET TAB (New) */}
+                        {/* 3. FREE NET TAB */}
                         {activeTab === 'freenet' && (
                             <div className="animate-fadeIn space-y-4">
                                 <div className="bg-yellow-50 border border-yellow-100 p-4 rounded-xl flex items-center gap-3">
@@ -555,7 +688,7 @@
                                     <i data-lucide="book-open" className="text-blue-600 w-6 h-6"></i>
                                     <div>
                                         <h3 className="font-bold text-blue-900">العريف (الأكواد الشاملة)</h3>
-                                        <p className="text-xs text-blue-700">دليل أكواد جميع خدمات شبكة {selectedNetwork.name}</p>
+                                        <p className="text-xs text-blue-700">دليل أكواد جميع خدمات شبكة {selectedNetwork.name} (كول تون وتحويل)</p>
                                     </div>
                                 </div>
 
