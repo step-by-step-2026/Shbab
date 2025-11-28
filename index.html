@@ -11,8 +11,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
@@ -27,30 +27,28 @@
         .table-scroll { overflow-x: auto; }
     </style>
     
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-        
-        // 💡 إعدادات مشروعك
+    <script>
+        // 💡 إعدادات مشروعك - يجب استبدالها بإعداداتك الحقيقية
         const firebaseConfig = {
-          apiKey: "AIzaSyDpVqFWJfB4rA2-NA4QIl1w07e2LFQaYic",
-          authDomain: "tourguideapp-313c1.firebaseapp.com",
-          databaseURL: "https://tourguideapp-313c1-default-rtdb.firebaseio.com",
-          projectId: "tourguideapp-313c1",
-          storageBucket: "tourguideapp-313c1.firebasestorage.app",
-          messagingSenderId: "1036127588385",
-          appId: "1:1036127588385:web:4924705000167b06395360"
+          apiKey: "YOUR_API_KEY",
+          authDomain: "YOUR_AUTH_DOMAIN",
+          databaseURL: "YOUR_DATABASE_URL",
+          projectId: "YOUR_PROJECT_ID",
+          storageBucket: "YOUR_STORAGE_BUCKET",
+          messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+          appId: "YOUR_APP_ID"
         };
         
-        window.firebaseApp = initializeApp(firebaseConfig);
+        window.firebaseApp = firebase.initializeApp(firebaseConfig);
         
-        // 💡 إتاحة دوال Database في النطاق العام للـ Babel
+        // 💡 إتاحة دوال Database في النطاق العام للـ Babel (V8 Style)
         window.firebaseDatabase = {
              getDatabase: (app) => firebase.database(app), 
-             ref: (db, path) => firebase.database().ref(path), 
-             push: (ref, data) => firebase.database().ref(ref.toString().split('/').pop()).push(data),
-             remove: (ref) => firebase.database().ref(ref.toString().split('/').pop()).remove(),
-             onValue: (ref, callback) => firebase.database().ref(ref.toString().split('/').pop()).on('value', callback),
-             set: (ref, value) => firebase.database().ref(ref.toString().split('/').pop()).set(value)
+             ref: (db, path) => firebase.database(db.app).ref(path), 
+             push: (ref, data) => ref.push(data),
+             remove: (ref) => ref.remove(),
+             onValue: (ref, callback) => ref.on('value', callback),
+             set: (ref, value) => ref.set(value)
         };
     </script>
 </head>
@@ -62,48 +60,23 @@
         const { useState, useEffect } = React;
 
         // --- Utility Functions ---
-        // (Keep as in original Admin code, or define here for clarity)
-        const getTypeText = (type) => {
-            switch (type) {
-                case 'complaint': return 'شكوى'; case 'suggestion': return 'اقتراح'; case 'new_code': return 'كود جديد'; default: return 'غير معروف';
-            }
-        };
-
-        const getTypeColor = (type) => {
-            switch (type) {
-                case 'complaint': return 'bg-red-500/20 text-red-300 border-red-700'; case 'suggestion': return 'bg-blue-500/20 text-blue-300 border-blue-700'; case 'new_code': return 'bg-green-500/20 text-green-300 border-green-700'; default: return 'bg-gray-500/20 text-gray-300 border-gray-700';
-            }
-        };
-
-        const getStatusColor = (status) => {
-            switch (status) {
-                case 'New': return 'bg-yellow-500/20 text-yellow-300 border-yellow-700'; case 'Pending': return 'bg-orange-500/20 text-orange-300 border-orange-700'; case 'Approved': return 'bg-green-500/20 text-green-300 border-green-700'; case 'Rejected': return 'bg-red-500/20 text-red-300 border-red-700'; default: return 'bg-gray-500/20 text-gray-300 border-gray-700';
-            }
-        };
-
-        const getNetworkName = (id) => {
-            switch (id) {
-                case 'vodafone': return 'فودافون'; case 'etisalat': return 'اتصالات'; case 'orange': return 'أورنج'; case 'we': return 'وي'; default: return 'غير محدد';
-            }
-        };
-
+        const getTypeText = (type) => { /* ... */ return type === 'complaint' ? 'شكوى' : type === 'suggestion' ? 'اقتراح' : type === 'new_code' ? 'كود جديد' : 'غير معروف'; };
+        const getTypeColor = (type) => { /* ... */ return type === 'complaint' ? 'bg-red-500/20 text-red-300 border-red-700' : type === 'suggestion' ? 'bg-blue-500/20 text-blue-300 border-blue-700' : 'bg-green-500/20 text-green-300 border-green-700'; };
+        const getStatusColor = (status) => { /* ... */ return status === 'New' ? 'bg-yellow-500/20 text-yellow-300 border-yellow-700' : status === 'Pending' ? 'bg-orange-500/20 text-orange-300 border-orange-700' : status === 'Approved' ? 'bg-green-500/20 text-green-300 border-green-700' : 'bg-red-500/20 text-red-300 border-red-700'; };
+        const getNetworkName = (id) => { /* ... */ return id === 'vodafone' ? 'فودافون' : id === 'etisalat' ? 'اتصالات' : id === 'orange' ? 'أورنج' : 'وي'; };
         const formatTimestamp = (timestamp) => {
             const date = new Date(timestamp);
-            return date.toLocaleDateString('ar-EG', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+            return date.toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         };
+
+
         // --- Admin Login Component (Simulation) ---
         const AdminLogin = ({ onLogin }) => {
             const [password, setPassword] = useState('');
             const [error, setError] = useState(null);
 
             const handleLogin = () => {
-                // كلمة مرور وهمية (يجب استبدالها بـ Firebase Auth في تطبيق إنتاجي)
+                // كلمة مرور وهمية
                 if (password === 'Admin@2025') { 
                     localStorage.setItem('isAdminLoggedIn', 'true');
                     onLogin(true);
@@ -154,7 +127,6 @@
             const [searchTerm, setSearchTerm] = useState('');
             const [isLoading, setIsLoading] = useState(true);
 
-            // 💡 استيراد دوال Firebase من الـ window
             const { getDatabase, ref, onValue, set, remove } = window.firebaseDatabase; 
 
             // 🚀 جلب البيانات الحية من Firebase
@@ -166,22 +138,21 @@
                     const data = snapshot.val();
                     const list = [];
                     if (data) {
-                        // تحويل Object إلى Array وإضافة الـ Key كـ id
                         Object.keys(data).forEach(key => {
                             list.push({ id: key, ...data[key] });
                         });
                     }
-                    // عرض الأحدث أولاً
                     setFeedbackData(list.sort((a, b) => b.timestamp - a.timestamp));
                     setIsLoading(false);
                 }, (error) => {
                     console.error("Firebase Fetch Error: ", error);
-                    alert("فشل جلب البيانات من Firebase. تحقق من قواعد الأمان!");
+                    // تنبيه في حالة وجود خطأ في قواعد الأمان
+                    alert("فشل جلب البيانات من Firebase. تأكد من قواعد الأمان (Rules)!");
                     setIsLoading(false);
                 });
 
-                // وظيفة التنظيف (Cleanup function)
-                return () => onValue(feedbackRef, () => {}, () => {}, { onlyOnce: true }); 
+                // وظيفة التنظيف 
+                return () => onValue(feedbackRef, () => {}, { onlyOnce: true }); 
             }, []);
 
 
@@ -197,15 +168,16 @@
                         .catch(err => alert("❌ فشل الحذف: " + err.message));
 
                 } else if (action === 'approve') {
-                    if (!window.confirm("هل أنت متأكد من الموافقة على هذا الكود؟")) return;
-                    set(ref(db, `feedback/${id}/status`), 'Approved')
+                    if (!window.confirm("هل أنت متأكد من الموافقة على هذا الكود ونشره؟")) return;
+                    const statusRef = ref(db, `feedback/${id}/status`);
+                    set(statusRef, 'Approved')
                         .then(() => alert(`✅ تمت الموافقة على الكود بنجاح!`))
                         .catch(err => alert("❌ فشل الموافقة: " + err.message));
                     
-                    // 💡 ملاحظة: هنا يجب أن يتم إضافة الكود إلى جدول الأكواد المنشورة
                 } else if (action === 'reject') {
                     if (!window.confirm("هل أنت متأكد من رفض هذا الكود؟")) return;
-                    set(ref(db, `feedback/${id}/status`), 'Rejected')
+                    const statusRef = ref(db, `feedback/${id}/status`);
+                    set(statusRef, 'Rejected')
                         .then(() => alert(`✅ تم رفض الكود بنجاح!`))
                         .catch(err => alert("❌ فشل الرفض: " + err.message));
                 }
@@ -219,7 +191,6 @@
                     return (
                         item.message.toLowerCase().includes(searchLower) ||
                         (item.codeTitle && item.codeTitle.toLowerCase().includes(searchLower)) ||
-                        (item.codeValue && item.codeValue.toLowerCase().includes(searchLower)) ||
                         item.userPhone.includes(searchTerm)
                     );
                 });
@@ -251,7 +222,7 @@
                     </td>
                     <td className="p-3 text-center">
                         <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border ${getStatusColor(item.status)}`}>
-                            {item.status === 'New' && item.type === 'complaint' ? 'جديدة' : item.status === 'New' && item.type === 'suggestion' ? 'جديد' : item.status === 'Pending' ? 'بانتظار المراجعة' : item.status === 'Approved' ? 'تمت الموافقة' : 'مرفوض'}
+                            {item.status === 'Pending' ? 'بانتظار المراجعة' : item.status === 'Approved' ? 'تمت الموافقة' : item.status === 'Rejected' ? 'مرفوض' : 'جديد'}
                         </span>
                     </td>
                     <td className="p-3 text-center text-xs text-gray-400">{formatTimestamp(item.timestamp)}</td>
@@ -404,6 +375,7 @@
             );
 
             useEffect(() => {
+                // تأكد من تشغيل أيقونات Lucide هنا
                 if (window.lucide) window.lucide.createIcons();
             }, [isLoggedIn]);
 
